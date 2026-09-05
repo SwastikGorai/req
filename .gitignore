@@ -1,0 +1,6 @@
+# build output
+/req.exe
+*.test
+
+# local workspace state (created by req init)
+.req/
