@@ -1,7 +1,7 @@
 # Current handoff
 
 - Status: Phases 0–1 complete and verified; Phase 2 not started.
-- Repository/branch/commit or working-tree state: `D:\Projects\Work\M\GoPM`, git `main`, Phase 0 commit `67f0e05`, Phase 1 commit recorded below. Working tree clean at handoff. Toolchain Go 1.25.5 (Windows amd64).
+- Repository/branch/commit or working-tree state: `D:\Projects\Work\M\GoPM`, git `main`, commits `67f0e05` (Phase 0) and `b02a335` (Phase 1). Working tree clean at handoff. Toolchain Go 1.25.5 (Windows amd64).
 - Active phase and exact task: none in progress; next is Phase 2, task 1.
 - Changed files and public interfaces (Phase 1):
   - `go.mod`/`go.sum` — added `github.com/dop251/goja v0.0.0-20260903201622-f87b40ad7341` (MIT) plus transitive deps.
