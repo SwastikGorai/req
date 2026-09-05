@@ -2,6 +2,14 @@
 
 Consequential implementation choices, newest phase first. Routine reversible choices stay in code; cross-phase consequences live here and in handoff.md.
 
+## Phase 1 — Embedded JavaScript feasibility
+
+- **Runtime chosen: `github.com/dop251/goja`, pinned at `v0.0.0-20260903201622-f87b40ad7341`.** Resolved via `go get @latest` on 2026-09-05 with Go 1.25.5; commit dated 2026-09-03, so the project is actively maintained. License: MIT (verified in the module cache). All five feasibility tests pass under `-race`.
+- **Goja fact that shapes the event loop:** this version has no `ExecuteDeferredJobs`; promise reaction jobs run automatically whenever the JS stack empties — after `RunProgram` and after each owner-thread `Callable` invocation. The drain loop therefore only needs the pending-host-task counter; reactions that schedule more host work raise the counter again before the check.
+- **Interrupt handling:** `rt.Interrupt` is the only cross-goroutine runtime call (watchdog only). It latches if the runtime is idle, so each run starts with `ClearInterrupt()` — safe because the previous run's watchdog has provably exited before `Run` returns. `Run` reports either `*goja.InterruptedError` or the context error for the same cancellation; tests accept both, and the production exit-code mapping (130/3) is applied later.
+- **Late completions:** every completion job carries the run-generation token of the run that scheduled it; if the run has ended (or its context is gone) the job is discarded without touching JS values. `Close` drops queued jobs via a `quit` channel so senders never block or panic.
+- **Spike bindings (`vars`, `log`, `httpGet`, `httpGetAsync`) are throwaway.** They prove ownership/interruption/async only; the supported pm surface is built in Phases 8–12 and is not wired into the CLI yet. Spike body cap is a fixed 1 MiB placeholder; the configurable 10 MiB policy comes with production bindings.
+
 ## Phase 0 — Core / Walking Skeleton
 
 - **Module path is `req`, module rooted at the repository root.** No hosting/domain prefix; the binary is the deliverable and nothing is published. Imports read `req/internal/...`. No third-party dependencies yet.

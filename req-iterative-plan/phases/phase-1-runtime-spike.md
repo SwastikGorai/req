@@ -6,22 +6,22 @@
 
 ## Do this now
 
-1. [ ] Evaluate and pin a Goja version compatible with the installed Go toolchain; record its version and license.
-2. [ ] Create internal/scripting/spike_test.go with a JS variable adapter and source-location error test.
-3. [ ] Add a deadline test that interrupts an infinite JS loop without hanging the test process.
-4. [ ] Build a minimal owner-goroutine queue; complete one local HTTP callback on that owner.
-5. [ ] Complete one Promise request and cancel one delayed HTTP request; run race tests and record the runtime decision.
+1. [x] Evaluate and pin a Goja version compatible with the installed Go toolchain; record its version and license.
+2. [x] Create internal/scripting/spike_test.go with a JS variable adapter and source-location error test.
+3. [x] Add a deadline test that interrupts an infinite JS loop without hanging the test process.
+4. [x] Build a minimal owner-goroutine queue; complete one local HTTP callback on that owner.
+5. [x] Complete one Promise request and cancel one delayed HTTP request; run race tests and record the runtime decision.
 
 Stuck on any step? See **Design details** below.
 
 ## Checkpoint — Phase 1
 
-- **Status:** `[ ] Not started`
-- **What was actually done:** Not implemented. Fill in changed files, decisions and deviations when work occurs.
-- **Verification:** `go test -race -timeout 30s ./internal/scripting -run TestRuntime`; all callback, Promise, interrupt and cancellation cases must finish.
-- **Evidence:** Not run. Record command, exit status and observed assertions here.
+- **Status:** `[x] Complete`
+- **What was actually done:** Pinned `github.com/dop251/goja v0.0.0-20260903201622-f87b40ad7341` (MIT license verified in the module cache; commit dated 2026-09-03, actively maintained; resolved via `go get @latest` on Go 1.25.5). Created `internal/scripting/engine.go` (`Source`, `Report`, `Engine` exactly per LLD) and `internal/scripting/loop.go`: one owner goroutine owns the `goja.Runtime` through an unbuffered job queue; a watchdog calls `rt.Interrupt(ctx.Err())` (Goja's documented cross-goroutine exception) and a latched interrupt is cleared at the next run start after the previous watchdog provably exited; each run gets a generation token so late completions are discarded; host HTTP reuses `internal/httpclient` with the per-run context, counts `pending` before launch and decrements it only after the owner-thread callback settles. The drain loop returns when `pending == 0` — in this Goja version promise reaction jobs run automatically whenever the JS stack empties (after `RunProgram` and after each owner-thread `Callable` call; there is no `ExecuteDeferredJobs`), which satisfies the "zero HTTP count alone is insufficient" rule structurally. Spike bindings: `vars` (Go-backed store), `log`, `httpGet` (callback), `httpGetAsync` (Goja `NewPromise`, resolved on the owner). Tests: the four named stubs plus `TestRuntimeSourceLocationError`. Spike is not wired into the CLI and claims no pm compatibility.
+- **Verification:** `go test -race -timeout 30s ./internal/scripting -run TestRuntime`; `go vet ./...`; `go test -race ./...`; `go build ./cmd/req`.
+- **Evidence:** Official phase command: `ok req/internal/scripting` (1.497s; verbose uncached run 3.197s). All five tests PASS under `-race`: TestRuntimeVariableRoundTrip, TestRuntimeSourceLocationError, TestRuntimeInterrupt (0.10s — watchdog interrupted `for(;;){}` at the 100ms deadline), TestRuntimeCallbackAndPromise (callback and Promise both settled on the owner; logs prove post-script draining: `script start`, `script end`, `promise settled`), TestRuntimeCancellation (canceled mid-flight; Run returned `context.Canceled`, the server handler was released, no success callback). `go vet ./...` clean; full race suite `ok` for `internal/cli`, `internal/httpclient`, `internal/scripting`; build OK. Runtime decision recorded in [docs/decisions.md](../../docs/decisions.md).
 - **Next step:** Phase 2, task 1: [phase-2-http-options.md](phase-2-http-options.md)
-- **Resume cursor if interrupted:** Task 1; replace with exact task/test/file before handing off.
+- **Resume cursor if interrupted:** Phase 1 complete; start Phase 2 by refining its LLD signatures against the actual `internal/httpclient`/`internal/cli` code (AGENTS.md working loop step 3), then implement.
 
 ---
 
