@@ -62,18 +62,3 @@ func TestCoreNoWorkspace(t *testing.T) {
 		t.Errorf("stdout = %q, want %q", stdout.String(), "no workspace needed")
 	}
 }
-
-func TestSendUsageErrors(t *testing.T) {
-	cases := map[string][]string{
-		"missing URL":        {"send", "GET"},
-		"extra args":         {"send", "GET", "http://example.com", "--query", "page=1"},
-		"schemeless URL":     {"send", "GET", "example.com/x"},
-		"unsupported scheme": {"send", "GET", "ftp://example.com/x"},
-	}
-	for name, args := range cases {
-		var stdout, stderr bytes.Buffer
-		if code := Run(context.Background(), args, &stdout, &stderr); code != exitUsage {
-			t.Errorf("%s: exit = %d, want 2 (stderr: %s)", name, code, stderr.String())
-		}
-	}
-}

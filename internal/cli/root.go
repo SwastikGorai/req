@@ -6,12 +6,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/http"
-	"net/url"
-	"strings"
-	"time"
-
-	"req/internal/httpclient"
 )
 
 // Exit codes from IMPLEMENTATION.md section 6; later phases add the rest.
@@ -19,15 +13,14 @@ const (
 	exitSuccess   = 0
 	exitUsage     = 2
 	exitTransport = 3
+	exitHTTPFail  = 4
 	exitCanceled  = 130
 )
 
 // Version is reported by req --version.
 const Version = "0.0.1"
 
-// Run executes one command and returns the process exit code. Argument
-// parsing is intentionally trivial and replaceable while the command set is
-// small; flags arrive with later phases.
+// Run executes one command and returns the process exit code.
 func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		return printUsage(stderr, exitUsage)
@@ -46,50 +39,31 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 }
 
-// runSend handles `req send METHOD URL`. Extra or malformed arguments fail
-// with exit 2 rather than being ignored.
-func runSend(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	if len(args) != 2 {
-		fmt.Fprintln(stderr, "usage: req send METHOD URL")
-		return exitUsage
-	}
-	method, rawURL := strings.ToUpper(args[0]), args[1]
-	if u, err := url.Parse(rawURL); err != nil || (u.Scheme != "http" && u.Scheme != "https") {
-		fmt.Fprintf(stderr, "req: URL must be absolute http or https, got %q\n", rawURL)
-		return exitUsage
-	}
-
-	resp, err := httpclient.Send(ctx, httpclient.DefaultClient(), method, rawURL, nil, http.Header{})
-	if err != nil {
-		if ctx.Err() != nil {
-			fmt.Fprintln(stderr, "req: canceled")
-			return exitCanceled
-		}
-		fmt.Fprintf(stderr, "req: %v\n", err)
-		return exitTransport
-	}
-	defer resp.Body.Close()
-
-	fmt.Fprintf(stderr, "%s %s -> %d %s in %s\n",
-		method, rawURL, resp.StatusCode, http.StatusText(resp.StatusCode), resp.Duration.Truncate(time.Microsecond))
-	if _, err := io.Copy(stdout, resp.Body); err != nil {
-		fmt.Fprintf(stderr, "req: reading body: %v\n", err)
-		return exitTransport
-	}
-	return exitSuccess
-}
-
 func printUsage(w io.Writer, code int) int {
 	fmt.Fprintf(w, `req — local-first HTTP client
 
 Usage:
-  req send METHOD URL     send one request; the body goes to stdout,
-                          status and elapsed time to stderr
+  req send METHOD URL [flags]
+                          send one request; the body goes to stdout, status
+                          and elapsed time to stderr
+
+Send flags:
+  -H, --header NAME:VALUE   header entry; repeat to append
+  --query KEY=VALUE         query entry; repeat to append
+  --method, --url           instead of positional METHOD / URL
+  --body TEXT               raw body (Content-Type text/plain)
+  --json JSON               JSON body, validated before sending
+                            (--body and --json are mutually exclusive; an
+                            explicit Content-Type header wins)
+  --timeout DURATION        request deadline (default 30s)
+  --no-follow               return 3xx responses instead of following them
+  --insecure                skip TLS certificate verification
+  --fail                    exit 4 when the response status is >= 400
+
   req --version
   req help
 
-Global flags --workspace, --no-color and shared request flags arrive with
-later phases.
+Workspace, environment and scripting commands arrive with later phases.
 `)
 	return code
 }

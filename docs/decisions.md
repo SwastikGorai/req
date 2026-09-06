@@ -2,6 +2,13 @@
 
 Consequential implementation choices, newest phase first. Routine reversible choices stay in code; cross-phase consequences live here and in handoff.md.
 
+## Phase 2 — HTTP methods, bodies and failures
+
+- **Credentials follow redirects only within the exact origin (scheme + host + port), stricter than net/http.** Verified against the Go 1.25 source: `Client.do` compares domain names (`isDomainOrSubdomain` over IDNA hosts), so the stdlib forwards `Authorization`/`Cookie` across ports and on an https→http downgrade to the same host. Our `Client(Options).CheckRedirect` deletes the sensitive header set (`Authorization`, `Proxy-Authorization`, `Cookie`, `Cookie2`, `Www-Authenticate`, `Proxy-Authenticate`) whenever the redirect leaves the original origin, and keeps them on same-origin redirects. Subdomain forwards are also stripped (no `--location-trusted` equivalent until a phase asks for one); explicit `:80`-style ports are compared literally, so a default-port URL may be over-stripped — the fail-safe direction. This behavior applies to main and (later) auxiliary script requests because both use `httpclient.Client`.
+- **Client policy moved into `Options`/`Client(opts)`** (`internal/httpclient/build.go`); `DefaultClient()` = `Client(Options{})`; `Send` untouched. Phase 3+ selects per-execution policy (timeout, insecure, redirects) through `Options`.
+- **Send flag parsing is strict and additive.** Repeated `-H/--query` append entries; `--query` appends onto the existing URL query without re-encoding it (duplicates and empty values survive byte-for-byte). `--body`/`--json` are the only body modes until Phase 7; JSON is validated (exit 2) before sending; generated Content-Type (`application/json` / `text/plain`) loses to any explicit `Content-Type` header. Positional `METHOD URL` and `--method`/`--url` are mutually exclusive; unknown flags and extra positional arguments exit 2.
+- **Go 1.25 renamed the redirect sentinel:** `http.ErrUseLastResponse` (the old `ErrUseOfLastResponse` no longer exists) — used for `--no-follow`.
+
 ## Phase 1 — Embedded JavaScript feasibility
 
 - **Runtime chosen: `github.com/dop251/goja`, pinned at `v0.0.0-20260903201622-f87b40ad7341`.** Resolved via `go get @latest` on 2026-09-05 with Go 1.25.5; commit dated 2026-09-03, so the project is actively maintained. License: MIT (verified in the module cache). All five feasibility tests pass under `-race`.

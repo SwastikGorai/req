@@ -26,18 +26,10 @@ type Response struct {
 	Duration   time.Duration
 }
 
-// DefaultClient returns the process-wide transport policy: 30s deadline, at
+// DefaultClient returns the process-wide default policy: 30s deadline, at
 // most maxRedirects redirects, TLS verification on, no automatic retries.
 func DefaultClient() *http.Client {
-	return &http.Client{
-		Timeout: DefaultTimeout,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if len(via) >= maxRedirects {
-				return fmt.Errorf("stopped after %d redirects", maxRedirects)
-			}
-			return nil
-		},
-	}
+	return Client(Options{})
 }
 
 // Send executes one request and measures elapsed time to the response
