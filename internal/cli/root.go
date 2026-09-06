@@ -44,6 +44,16 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return runSend(ctx, inv.args[1:], stdout, stderr)
 	case "init":
 		return runInit(invocation{args: inv.args[1:], workspace: inv.workspace}, stdout, stderr)
+	case "collection":
+		return runCollection(ctx, invocation{args: inv.args[1:], workspace: inv.workspace}, stdout, stderr)
+	case "folder":
+		return runFolder(ctx, invocation{args: inv.args[1:], workspace: inv.workspace}, stdout, stderr)
+	case "request":
+		return runRequest(ctx, invocation{args: inv.args[1:], workspace: inv.workspace}, stdout, stderr)
+	case "tree":
+		return runTree(ctx, invocation{args: inv.args[1:], workspace: inv.workspace}, stdout, stderr)
+	case "run":
+		return runRun(ctx, invocation{args: inv.args[1:], workspace: inv.workspace}, stdout, stderr)
 	case "help", "-h", "--help":
 		return printUsage(stdout, exitSuccess)
 	case "--version":
@@ -76,10 +86,24 @@ Send flags:
   --insecure                skip TLS certificate verification
   --fail                    exit 4 when the response status is >= 400
 
+  req collection create NAME                     create an empty collection
+  req collection list                            list collections as NAME<TAB>ID
+  req folder create PATH [--parents]             create a folder in a collection
+  req request create PATH --method M --url U     save a request; also accepts
+                                                 -H, --query, --body, --json
+                                                 and --parents
+  req request list PATH                          list requests as
+                                                 NAME<TAB>METHOD<TAB>URL
+  req request show PATH                          print one saved request as JSON
+  req tree PATH                                  print a collection or folder
+                                                 subtree
+  req run PATH [flags]                           execute a saved request;
+                                                 send flags apply as overrides
+
   req --version
   req help
 
-Workspace, environment and scripting commands arrive with later phases.
+Environment and scripting commands arrive with later phases.
 `)
 	return code
 }

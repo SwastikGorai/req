@@ -1,19 +1,18 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
 	"time"
 
-	"req/internal/httpclient"
+	"req/internal/execution"
+	"req/internal/model"
 )
 
 type bodyMode uint8
@@ -28,7 +27,7 @@ const (
 type sendOptions struct {
 	method   string
 	rawURL   string
-	headers  http.Header
+	headers  [][2]string // ordered key/value entries; duplicates preserved
 	queries  [][2]string // ordered key/value entries; duplicates preserved
 	bodyMode bodyMode
 	body     []byte
@@ -51,55 +50,47 @@ func runSend(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "req: %v\nusage: req send METHOD URL [flags]\n", err)
 		return exitUsage
 	}
-	finalURL, err := applyQueries(opts.rawURL, opts.queries)
+	// A direct send has nothing saved: every value arrives via the
+	// overrides and Prepare only validates what parsing already checked.
+	outgoing, err := execution.Prepare(model.Request{}, sendOverrides(opts), sendPolicy(opts))
 	if err != nil {
 		fmt.Fprintf(stderr, "req: %v\n", err)
 		return exitUsage
 	}
-	if opts.bodyMode != bodyNone && opts.headers.Get("Content-Type") == "" {
-		if opts.bodyMode == bodyJSON {
-			opts.headers.Set("Content-Type", "application/json")
-		} else {
-			opts.headers.Set("Content-Type", "text/plain")
-		}
-	}
+	return execution.Execute(ctx, outgoing, stdout, stderr)
+}
 
-	var body io.Reader
-	if opts.bodyMode != bodyNone {
-		body = bytes.NewReader(opts.body)
+// sendOverrides translates parsed send flags into execution overrides.
+func sendOverrides(opts *sendOptions) execution.Overrides {
+	ov := execution.Overrides{
+		Method:  opts.method,
+		URL:     opts.rawURL,
+		Queries: opts.queries,
+		Headers: opts.headers,
 	}
-	client := httpclient.Client(httpclient.Options{
+	switch opts.bodyMode {
+	case bodyRaw:
+		ov.BodyMode, ov.Body = "raw", opts.body
+	case bodyJSON:
+		ov.BodyMode, ov.Body = "json", opts.body
+	}
+	return ov
+}
+
+// sendPolicy translates parsed send flags into the execution policy.
+func sendPolicy(opts *sendOptions) execution.Policy {
+	return execution.Policy{
 		Timeout:         opts.timeout,
 		InsecureTLS:     opts.insecure,
 		FollowRedirects: !opts.noFollow,
-	})
-	resp, err := httpclient.Send(ctx, client, opts.method, finalURL, body, opts.headers)
-	if err != nil {
-		if ctx.Err() != nil {
-			fmt.Fprintln(stderr, "req: canceled")
-			return exitCanceled
-		}
-		fmt.Fprintf(stderr, "req: %v\n", err)
-		return exitTransport
+		FailOnHTTPError: opts.fail,
 	}
-	defer resp.Body.Close()
-
-	fmt.Fprintf(stderr, "%s %s -> %d %s in %s\n",
-		opts.method, finalURL, resp.StatusCode, http.StatusText(resp.StatusCode), resp.Duration.Truncate(time.Microsecond))
-	if _, err := io.Copy(stdout, resp.Body); err != nil {
-		fmt.Fprintf(stderr, "req: reading body: %v\n", err)
-		return exitTransport
-	}
-	if opts.fail && resp.StatusCode >= http.StatusBadRequest {
-		return exitHTTPFail
-	}
-	return exitSuccess
 }
 
 // parseSendArgs parses and validates send arguments. Unknown flags, missing
 // values and conflicting modes are errors; nothing is silently dropped.
 func parseSendArgs(args []string) (*sendOptions, error) {
-	opts := &sendOptions{headers: http.Header{}}
+	opts := &sendOptions{}
 	var positional []string
 	var methodFlag, urlFlag string
 	haveMethodFlag, haveURLFlag := false, false
@@ -119,23 +110,21 @@ func parseSendArgs(args []string) (*sendOptions, error) {
 			if err != nil {
 				return nil, err
 			}
-			name, hvalue, ok := strings.Cut(v, ":")
-			name, hvalue = strings.TrimSpace(name), strings.TrimSpace(hvalue)
-			if !ok || !httpToken.MatchString(name) {
-				return nil, fmt.Errorf("invalid header %q (want \"Name: value\")", v)
+			h, err := parseHeaderEntry(v)
+			if err != nil {
+				return nil, err
 			}
-			opts.headers.Add(name, hvalue)
+			opts.headers = append(opts.headers, h)
 		case "--query":
 			v, err := value(&i, "--query")
 			if err != nil {
 				return nil, err
 			}
-			key, qvalue, ok := strings.Cut(v, "=")
-			key = strings.TrimSpace(key)
-			if !ok || key == "" {
-				return nil, fmt.Errorf("invalid query entry %q (want \"key=value\")", v)
+			q, err := parseQueryEntry(v)
+			if err != nil {
+				return nil, err
 			}
-			opts.queries = append(opts.queries, [2]string{key, qvalue})
+			opts.queries = append(opts.queries, q)
 		case "--method":
 			if haveMethodFlag {
 				return nil, errors.New("--method given more than once")
@@ -235,19 +224,22 @@ func parseSendArgs(args []string) (*sendOptions, error) {
 	return opts, nil
 }
 
-// applyQueries appends query entries without re-encoding the components the
-// URL already carries. Repeated keys and empty values survive as-is.
-func applyQueries(rawURL string, entries [][2]string) (string, error) {
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return "", err
+// parseHeaderEntry validates one "Name: value" header entry.
+func parseHeaderEntry(v string) ([2]string, error) {
+	name, hvalue, ok := strings.Cut(v, ":")
+	name, hvalue = strings.TrimSpace(name), strings.TrimSpace(hvalue)
+	if !ok || !httpToken.MatchString(name) {
+		return [2]string{}, fmt.Errorf("invalid header %q (want \"Name: value\")", v)
 	}
-	for _, kv := range entries {
-		sep := "&"
-		if u.RawQuery == "" {
-			sep = ""
-		}
-		u.RawQuery += sep + url.QueryEscape(kv[0]) + "=" + url.QueryEscape(kv[1])
+	return [2]string{name, hvalue}, nil
+}
+
+// parseQueryEntry validates one "key=value" query entry.
+func parseQueryEntry(v string) ([2]string, error) {
+	key, qvalue, ok := strings.Cut(v, "=")
+	key = strings.TrimSpace(key)
+	if !ok || key == "" {
+		return [2]string{}, fmt.Errorf("invalid query entry %q (want \"key=value\")", v)
 	}
-	return u.String(), nil
+	return [2]string{key, qvalue}, nil
 }

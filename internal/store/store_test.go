@@ -216,10 +216,10 @@ func TestStoreFutureSchema(t *testing.T) {
 func TestStoreMalformed(t *testing.T) {
 	ws := newTestWorkspace(t)
 	cases := map[string]string{
-		"garbage":             "{not json",
-		"unknown field":       `{"schema_version":1,"id":"col-mal-001","name":"X","items":[],"bogus":1}`,
-		"trailing data":       `{"schema_version":1,"id":"col-mal-001","name":"X","items":[]} trailing`,
-		"validation failure":  `{"schema_version":1,"id":"col-mal-001","name":"a/b","items":[]}`,
+		"garbage":            "{not json",
+		"unknown field":      `{"schema_version":1,"id":"col-mal-001","name":"X","items":[],"bogus":1}`,
+		"trailing data":      `{"schema_version":1,"id":"col-mal-001","name":"X","items":[]} trailing`,
+		"validation failure": `{"schema_version":1,"id":"col-mal-001","name":"a/b","items":[]}`,
 	}
 	for name, content := range cases {
 		path := filepath.Join(ws.Dir(), "collections", "col-mal-001.json")

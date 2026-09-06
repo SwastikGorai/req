@@ -11,6 +11,14 @@ var ErrNoWorkspace = errors.New("no req workspace found")
 // ErrNotFound reports a missing collection file.
 var ErrNotFound = errors.New("not found")
 
+// ErrInvalidPath reports a malformed slash path (empty segment, "."/"..", or
+// a segment containing a path separator).
+var ErrInvalidPath = errors.New("invalid path")
+
+// ErrDuplicateName reports a name collision: a duplicate collection name or
+// a duplicate sibling name within one folder.
+var ErrDuplicateName = errors.New("duplicate name")
+
 // ConflictError reports a failed revision check: the file on disk changed
 // since the caller loaded it. The rejected candidate content is preserved
 // in Recovery (when it could be written) instead of overwriting blindly.
