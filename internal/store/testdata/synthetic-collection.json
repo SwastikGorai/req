@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "id": "col-synthetic-001",
+  "name": "Synthetic API",
+  "variables": {
+    "base_url": "https://api.example.test",
+    "retries": 3
+  },
+  "auth": {
+    "type": "bearer",
+    "token": "{{service_token}}"
+  },
+  "scripts": {
+    "pre_request": [
+      {
+        "id": "scr-pre-setup",
+        "source": "// collection-level pre-request setup\nvars.set('trace', Date.now());",
+        "enabled": true
+      }
+    ]
+  },
+  "items": [
+    {
+      "type": "folder",
+      "id": "fld-auth",
+      "name": "Auth",
+      "folder": {
+        "auth": {
+          "type": "basic",
+          "username": "{{api_user}}",
+          "password": "{{api_password}}"
+        },
+        "scripts": {
+          "post_response": [
+            {
+              "id": "scr-auth-post",
+              "source": "// folder-level post-response\nconsole.log('auth done');",
+              "enabled": true
+            }
+          ]
+        },
+        "children": [
+          {
+            "type": "request",
+            "id": "req-login",
+            "name": "Login",
+            "request": {
+              "method": "POST",
+              "url": "{{base_url}}/login",
+              "query": [
+                {"key": "verbose", "value": "true", "enabled": true},
+                {"key": "verbose", "value": "logs", "enabled": false}
+              ],
+              "headers": [
+                {"key": "X-Trace", "value": "1", "enabled": true},
+                {"key": "X-Trace", "value": "2", "enabled": true}
+              ],
+              "body": {
+                "type": "json",
+                "text": "{\"email\":\"{{email}}\"}"
+              },
+              "scripts": {
+                "post_response": [
+                  {
+                    "id": "scr-login-post",
+                    "source": "// request-level post-response",
+                    "enabled": true
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "request",
+      "id": "req-ping",
+      "name": "Ping",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/ping",
+        "auth": {
+          "type": "none"
+        },
+        "body": {
+          "type": "none"
+        }
+      }
+    }
+  ]
+}

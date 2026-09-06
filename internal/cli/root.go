@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 )
 
 // Exit codes from IMPLEMENTATION.md section 6; later phases add the rest.
@@ -14,8 +15,13 @@ const (
 	exitUsage     = 2
 	exitTransport = 3
 	exitHTTPFail  = 4
+	exitStorage   = 7
 	exitCanceled  = 130
 )
+
+// osGetwd is a variable so tests could stub it; the working directory is
+// otherwise read directly.
+var osGetwd = os.Getwd
 
 // Version is reported by req --version.
 const Version = "0.0.1"
@@ -25,16 +31,26 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		return printUsage(stderr, exitUsage)
 	}
-	switch args[0] {
+	inv, err := parseGlobals(args)
+	if err != nil {
+		fmt.Fprintf(stderr, "req: %v\n", err)
+		return exitUsage
+	}
+	if len(inv.args) == 0 {
+		return printUsage(stderr, exitUsage)
+	}
+	switch inv.args[0] {
 	case "send":
-		return runSend(ctx, args[1:], stdout, stderr)
+		return runSend(ctx, inv.args[1:], stdout, stderr)
+	case "init":
+		return runInit(invocation{args: inv.args[1:], workspace: inv.workspace}, stdout, stderr)
 	case "help", "-h", "--help":
 		return printUsage(stdout, exitSuccess)
 	case "--version":
 		fmt.Fprintf(stdout, "req version %s\n", Version)
 		return exitSuccess
 	default:
-		fmt.Fprintf(stderr, "req: unknown command %q\n\n", args[0])
+		fmt.Fprintf(stderr, "req: unknown command %q\n\n", inv.args[0])
 		return printUsage(stderr, exitUsage)
 	}
 }

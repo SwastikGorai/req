@@ -7,7 +7,7 @@ Keep status synchronized with PLAN.md and individual checkpoints. All phases are
 | 0 | Core / Walking Skeleton | [x] Complete | None | [phase-0-core.md](phase-0-core.md) |
 | 1 | Embedded JavaScript feasibility | [x] Complete | Phase 0 | [phase-1-runtime-spike.md](phase-1-runtime-spike.md) |
 | 2 | HTTP methods, bodies and failures | [x] Complete | Phase 1 | [phase-2-http-options.md](phase-2-http-options.md) |
-| 3 | Workspace and atomic persistence | [ ] Not started | Phase 2 | [phase-3-storage.md](phase-3-storage.md) |
+| 3 | Workspace and atomic persistence | [x] Complete | Phase 2 | [phase-3-storage.md](phase-3-storage.md) |
 | 4 | Collections, folders and saved requests | [ ] Not started | Phase 3 | [phase-4-saved-requests.md](phase-4-saved-requests.md) |
 | 5 | Editing and organizing requests | [ ] Not started | Phase 4 | [phase-5-editing.md](phase-5-editing.md) |
 | 6 | Environments and inherited authentication | [ ] Not started | Phase 5 | [phase-6-variables-auth.md](phase-6-variables-auth.md) |
