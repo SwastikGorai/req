@@ -1,7 +1,7 @@
 # Current handoff
 
 - Status: Phases 0–2 complete and verified; Phase 3 not started.
-- Repository/branch/commit or working-tree state: `D:\Projects\Work\M\GoPM`, git `main`, commits `67f0e05` (Phase 0), `b02a335` (Phase 1), `8f55824` (handoff fix), `361b23e` (Phase 2). Working tree clean at handoff. Toolchain Go 1.25.5 (Windows amd64).
+- Repository/branch/commit or working-tree state: `D:\Projects\Work\M\GoPM`, git `main`: `67f0e05` (Phase 0), `b02a335` (Phase 1), `8f55824` (handoff fix), Phase 2 at HEAD (squashed tracker updates; hash not embeddable without self-reference). Working tree clean at handoff. Toolchain Go 1.25.5 (Windows amd64).
 - Active phase and exact task: none in progress; next is Phase 3, task 1.
 - Changed files and public interfaces (Phase 2):
   - `internal/httpclient/build.go` — `type Options { Timeout time.Duration; InsecureTLS, FollowRedirects bool }`, `func Client(opts) *http.Client` (0 timeout → 30s; `--no-follow` via `http.ErrUseLastResponse`; strips sensitive headers when a redirect leaves the original origin — scheme+host+port, stricter than net/http). `client.go`: `DefaultClient() = Client(Options{})`; `Send` unchanged.
