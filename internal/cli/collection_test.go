@@ -61,7 +61,7 @@ func TestCollectionCreateList(t *testing.T) {
 	mustRun(t, exitUsage, "collection", "create", "X", "Y")
 	mustRun(t, exitUsage, "collection", "create", "X", "--bogus")
 	mustRun(t, exitUsage, "collection")
-	mustRun(t, exitUsage, "collection", "rename", "A", "B") // arrives in Phase 5
+	mustRun(t, exitUsage, "collection", "rename", "A", "B") // missing OLD: covered by TestRenameCommands
 	mustRun(t, exitUsage, "collection", "list", "extra")
 }
 

@@ -23,7 +23,7 @@
 | 2 | HTTP methods, bodies and failures | [x] Complete | Phase 1 | [phase-2-http-options.md](phases/phase-2-http-options.md) |
 | 3 | Workspace and atomic persistence | [x] Complete | Phase 2 | [phase-3-storage.md](phases/phase-3-storage.md) |
 | 4 | Collections, folders and saved requests | [x] Complete | Phase 3 | [phase-4-saved-requests.md](phases/phase-4-saved-requests.md) |
-| 5 | Editing and organizing requests | [ ] Not started | Phase 4 | [phase-5-editing.md](phases/phase-5-editing.md) |
+| 5 | Editing and organizing requests | [x] Complete | Phase 4 | [phase-5-editing.md](phases/phase-5-editing.md) |
 | 6 | Environments and inherited authentication | [ ] Not started | Phase 5 | [phase-6-variables-auth.md](phases/phase-6-variables-auth.md) |
 | 7 | File uploads and body formats | [ ] Not started | Phase 6 | [phase-7-body-files.md](phases/phase-7-body-files.md) |
 | 8 | Script storage and inherited execution | [ ] Not started | Phase 7 | [phase-8-script-lifecycle.md](phases/phase-8-script-lifecycle.md) |

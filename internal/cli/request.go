@@ -11,12 +11,20 @@ import (
 	"req/internal/store"
 )
 
-const requestUsage = "usage: req request create PATH --method METHOD --url URL [flags]\n       req request list PATH\n       req request show PATH\n"
+const requestUsage = `usage: req request create PATH --method METHOD --url URL [flags]
+       req request list PATH
+       req request show PATH
+       req request rename PATH NEW
+       req request move SRC DEST
+       req request delete PATH [--yes]
+       req request edit PATH
+`
 
-// runRequest implements `req request create|list|show`.
+// runRequest implements `req request create|list|show|rename|move|delete|edit`.
 func runRequest(ctx context.Context, inv invocation, stdout, stderr io.Writer) int {
 	if len(inv.args) == 0 {
-		fmt.Fprintf(stderr, "req: missing request command (want %q, %q or %q)\n%s", "create", "list", "show", requestUsage)
+		fmt.Fprintf(stderr, "req: missing request command (want %q, %q, %q, %q, %q, %q or %q)\n%s",
+			"create", "list", "show", "rename", "move", "delete", "edit", requestUsage)
 		return exitUsage
 	}
 	sub, rest := inv.args[0], inv.args[1:]
@@ -28,8 +36,17 @@ func runRequest(ctx context.Context, inv invocation, stdout, stderr io.Writer) i
 		return requestList(ctx, subInv, stdout, stderr)
 	case "show":
 		return requestShow(ctx, subInv, stdout, stderr)
+	case "rename":
+		return renameItem(ctx, subInv, "request rename", stderr)
+	case "move":
+		return moveItem(ctx, subInv, "request move", stderr)
+	case "delete":
+		return requestDelete(ctx, subInv, stderr)
+	case "edit":
+		return editRequest(ctx, subInv, stderr)
 	default:
-		fmt.Fprintf(stderr, "req: unknown request command %q (want %q, %q or %q)\n%s", sub, "create", "list", "show", requestUsage)
+		fmt.Fprintf(stderr, "req: unknown request command %q (want %q, %q, %q, %q, %q, %q or %q)\n%s",
+			sub, "create", "list", "show", "rename", "move", "delete", "edit", requestUsage)
 		return exitUsage
 	}
 }
@@ -233,6 +250,59 @@ func requestShow(ctx context.Context, inv invocation, stdout, stderr io.Writer) 
 		return exitStorage
 	}
 	fmt.Fprintf(stdout, "%s\n", data)
+	return exitSuccess
+}
+
+// requestDelete implements `req request delete PATH [--yes]`. --yes is
+// accepted for symmetry with the collection and folder deletes, but a
+// request is a leaf and needs no confirmation.
+func requestDelete(ctx context.Context, inv invocation, stderr io.Writer) int {
+	const deleteUsage = "usage: req request delete PATH [--yes]\n"
+
+	var (
+		positional []string
+		yes        bool
+	)
+	for _, arg := range inv.args {
+		switch arg {
+		case "--yes":
+			yes = true
+		default:
+			if strings.HasPrefix(arg, "-") && arg != "-" {
+				fmt.Fprintf(stderr, "req: unknown flag %q\n%s", arg, deleteUsage)
+				return exitUsage
+			}
+			positional = append(positional, arg)
+		}
+	}
+	_ = yes // accepted but unused: leaf deletes need no confirmation
+	if len(positional) != 1 {
+		fmt.Fprintf(stderr, "req: request delete needs exactly one PATH\n%s", deleteUsage)
+		return exitUsage
+	}
+	path := positional[0]
+	ws, code := openWorkspace(inv, stderr)
+	if ws == nil {
+		return code
+	}
+	rp, err := ws.ResolvePath(ctx, path)
+	if err != nil {
+		fmt.Fprintf(stderr, "req: %v\n", err)
+		return usageOrStorage(err)
+	}
+	switch {
+	case rp.Item == nil:
+		fmt.Fprintf(stderr, "req: %q names the collection (use `req collection delete %s` to delete it)\n", path, path)
+		return exitUsage
+	case rp.Item.Type != "request":
+		fmt.Fprintf(stderr, "req: %q is a folder, not a request (use `req folder delete %s` to delete it)\n", path, path)
+		return exitUsage
+	}
+	if err := ws.DeleteItem(ctx, path); err != nil {
+		fmt.Fprintf(stderr, "req: %v\n", err)
+		return usageOrStorage(err)
+	}
+	fmt.Fprintf(stderr, "deleted request %q\n", path)
 	return exitSuccess
 }
 

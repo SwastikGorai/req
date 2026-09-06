@@ -30,12 +30,14 @@ func openWorkspace(inv invocation, stderr io.Writer) (*store.Workspace, int) {
 }
 
 // usageOrStorage maps store errors to exit codes: not-found paths, invalid
-// paths and duplicate names are usage problems (2); everything else (IO,
-// lock, conflict, malformed file) is a storage failure (7).
+// paths, duplicate names and invalid moves are usage problems (2);
+// everything else (IO, lock, conflict, malformed file) is a storage
+// failure (7).
 func usageOrStorage(err error) int {
 	if errors.Is(err, store.ErrNotFound) ||
 		errors.Is(err, store.ErrInvalidPath) ||
-		errors.Is(err, store.ErrDuplicateName) {
+		errors.Is(err, store.ErrDuplicateName) ||
+		errors.Is(err, store.ErrBadMove) {
 		return exitUsage
 	}
 	return exitStorage

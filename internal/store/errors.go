@@ -19,6 +19,10 @@ var ErrInvalidPath = errors.New("invalid path")
 // a duplicate sibling name within one folder.
 var ErrDuplicateName = errors.New("duplicate name")
 
+// ErrBadMove reports a move that cannot happen: across collections, into a
+// request, or a folder into itself or one of its descendants.
+var ErrBadMove = errors.New("invalid move")
+
 // ConflictError reports a failed revision check: the file on disk changed
 // since the caller loaded it. The rejected candidate content is preserved
 // in Recovery (when it could be written) instead of overwriting blindly.

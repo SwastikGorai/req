@@ -88,13 +88,26 @@ Send flags:
 
   req collection create NAME                     create an empty collection
   req collection list                            list collections as NAME<TAB>ID
+  req collection rename OLD NEW                  rename a collection
+  req collection delete NAME [--yes]             delete a collection; a nonempty
+                                                 one needs --yes or a confirm
   req folder create PATH [--parents]             create a folder in a collection
+  req folder rename PATH NEW                     rename a folder
+  req folder move SRC DEST                       move an item under a folder
+                                                 or a collection root
+  req folder delete PATH [--yes]                 delete a folder and its subtree
   req request create PATH --method M --url U     save a request; also accepts
                                                  -H, --query, --body, --json
                                                  and --parents
   req request list PATH                          list requests as
                                                  NAME<TAB>METHOD<TAB>URL
   req request show PATH                          print one saved request as JSON
+  req request rename PATH NEW                    rename a saved request
+  req request move SRC DEST                      move a request under a folder
+                                                 or a collection root
+  req request delete PATH [--yes]                delete a saved request
+  req request edit PATH                          edit a saved request in
+                                                 $EDITOR or $VISUAL
   req tree PATH                                  print a collection or folder
                                                  subtree
   req run PATH [flags]                           execute a saved request;

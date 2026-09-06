@@ -114,15 +114,28 @@ func (w *Workspace) lock(ctx context.Context) (func(), error) {
 	return nil, fmt.Errorf("acquiring workspace lock: %w", err)
 }
 
+// SaveRecovery preserves data under .req/recovery/<id>-<shorthash>.json
+// (0600) and returns its path. It is used for rejected save candidates and
+// for failed editor edits; a missing recovery directory skips the write and
+// returns an empty path.
+func (w *Workspace) SaveRecovery(id string, data []byte) (string, error) {
+	recoveryDir := filepath.Join(w.Dir(), "recovery")
+	if !dirExists(recoveryDir) {
+		return "", nil
+	}
+	recovery := filepath.Join(recoveryDir, fmt.Sprintf("%s-%s.json", id, shortRev(hashBytes(data))))
+	if err := writeFileAtomic(recovery, data, 0o600); err != nil {
+		return "", err
+	}
+	return recovery, nil
+}
+
 // conflict preserves the rejected candidate under .req/recovery and returns
 // a ConflictError pointing at it.
 func (w *Workspace) conflict(id string, candidate []byte, have, want string) error {
 	cerr := &ConflictError{CollectionID: id, Have: have, Want: want}
-	if recoveryDir := filepath.Join(w.Dir(), "recovery"); dirExists(recoveryDir) {
-		recovery := filepath.Join(recoveryDir, fmt.Sprintf("%s-%s.json", id, shortRev(hashBytes(candidate))))
-		if err := writeFileAtomic(recovery, candidate, 0o600); err == nil {
-			cerr.Recovery = recovery
-		}
+	if recovery, err := w.SaveRecovery(id, candidate); err == nil {
+		cerr.Recovery = recovery
 	}
 	return cerr
 }
