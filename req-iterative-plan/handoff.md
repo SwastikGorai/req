@@ -16,6 +16,10 @@
 - Decisions or deviations and reasons: see docs/decisions.md Phase 3 section (schema shape, `\` in names, revision semantics + recovery file, flock choice, init flag positions).
 - Next file/test/action: open [phases/phase-4-saved-requests.md](phases/phase-4-saved-requests.md); refine its LLD against `internal/store`/`internal/model` (collection/folder/request CRUD commands), then implement.
 
+## Working mode from Phase 4 onward (user-authorized)
+
+The user defined a `subagent-implementer` agent at `C:/Users/swast/.zcode/agents/subagent-implementer.md` (user-level, model GLM-5.3-Flash, tools Read/Grep/Glob/Bash/Edit/Write) and authorized the orchestrator/worker split. From Phase 4 onward the main agent acts as orchestrator only: research/refine LLDs, define tasks with acceptance criteria, grant command approvals (go vet/test/build commands used by earlier phases are pre-approved patterns to re-confirm per task), dispatch all code changes to `subagent-implementer`, verify its evidence independently, then update trackers and commit itself (the subagent is forbidden to commit). If the agent type is not available in the session's dispatch list, surface that to the user instead of silently reverting to direct implementation.
+
 ## Replace/update when handing off implementation
 
 - Repository/branch/commit or working-tree state: (filled above)
