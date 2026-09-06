@@ -32,9 +32,9 @@ type Item struct {
 
 // Folder holds nested items plus optional inherited auth and scripts.
 type Folder struct {
-	Children []Item    `json:"children"`
-	Auth     *Auth     `json:"auth,omitempty"`
-	Scripts  *Scripts  `json:"scripts,omitempty"`
+	Children []Item   `json:"children"`
+	Auth     *Auth    `json:"auth,omitempty"`
+	Scripts  *Scripts `json:"scripts,omitempty"`
 }
 
 // Request is one saved request definition. Values may contain {{variable}}
@@ -92,11 +92,11 @@ type Provenance struct {
 // exactly one file reference, never both; the remaining modes are structured
 // entry lists.
 type Body struct {
-	Type       string            `json:"type"` // "none", "raw", "json", "urlencoded" or "multipart"
-	Text       string            `json:"text,omitempty"`
-	File       string            `json:"file,omitempty"`
-	URLEncoded []Entry           `json:"urlencoded,omitempty"`
-	Multipart  []MultipartField  `json:"multipart,omitempty"`
+	Type       string           `json:"type"` // "none", "raw", "json", "urlencoded" or "multipart"
+	Text       string           `json:"text,omitempty"`
+	File       string           `json:"file,omitempty"`
+	URLEncoded []Entry          `json:"urlencoded,omitempty"`
+	Multipart  []MultipartField `json:"multipart,omitempty"`
 }
 
 // MultipartField is one multipart entry: a text value or a file reference.

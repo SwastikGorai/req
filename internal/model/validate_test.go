@@ -32,17 +32,17 @@ func TestValidateRejections(t *testing.T) {
 		return c
 	}
 	cases := map[string]Collection{
-		"future schema": mutate(func(c *Collection) { c.SchemaVersion = 2 }),
-		"old schema":    mutate(func(c *Collection) { c.SchemaVersion = 0 }),
-		"empty id":      mutate(func(c *Collection) { c.ID = "" }),
-		"unsafe id":     mutate(func(c *Collection) { c.ID = "../escape" }),
-		"empty name":    mutate(func(c *Collection) { c.Name = "" }),
-		"slash name":    mutate(func(c *Collection) { c.Name = "a/b" }),
-		"dot name":      mutate(func(c *Collection) { c.Name = "." }),
-		"dotdot name":   mutate(func(c *Collection) { c.Name = ".." }),
-		"backslash name": mutate(func(c *Collection) { c.Name = `a\b` }),
+		"future schema":    mutate(func(c *Collection) { c.SchemaVersion = 2 }),
+		"old schema":       mutate(func(c *Collection) { c.SchemaVersion = 0 }),
+		"empty id":         mutate(func(c *Collection) { c.ID = "" }),
+		"unsafe id":        mutate(func(c *Collection) { c.ID = "../escape" }),
+		"empty name":       mutate(func(c *Collection) { c.Name = "" }),
+		"slash name":       mutate(func(c *Collection) { c.Name = "a/b" }),
+		"dot name":         mutate(func(c *Collection) { c.Name = "." }),
+		"dotdot name":      mutate(func(c *Collection) { c.Name = ".." }),
+		"backslash name":   mutate(func(c *Collection) { c.Name = `a\b` }),
 		"reserved env var": mutate(func(c *Collection) { c.Variables["env:HOME"] = "x" }),
-		"bad auth type": mutate(func(c *Collection) { c.Auth = &Auth{Type: "oauth2"} }),
+		"bad auth type":    mutate(func(c *Collection) { c.Auth = &Auth{Type: "oauth2"} }),
 		"bad body type": mutate(func(c *Collection) {
 			c.Items[0].Request.Body = &Body{Type: "graphql"}
 		}),

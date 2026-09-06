@@ -40,9 +40,9 @@ func TestSameOrigin(t *testing.T) {
 	}{
 		{"http://api.example.com/x", "http://api.example.com/y", true},
 		{"http://API.example.com/x", "http://api.example.com/y", true},
-		{"http://127.0.0.1:8080/x", "http://127.0.0.1:9090/y", false}, // port change
+		{"http://127.0.0.1:8080/x", "http://127.0.0.1:9090/y", false},    // port change
 		{"https://api.example.com/x", "http://api.example.com/y", false}, // downgrade
-		{"http://example.com/x", "http://api.example.com/y", false},     // subdomain
+		{"http://example.com/x", "http://api.example.com/y", false},      // subdomain
 	}
 	for _, c := range cases {
 		if got := sameOrigin(parse(c.a), parse(c.b)); got != c.want {
