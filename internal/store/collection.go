@@ -50,6 +50,9 @@ func (w *Workspace) LoadCollection(_ context.Context, id string) (model.Collecti
 	if err := c.Validate(); err != nil {
 		return model.Collection{}, "", fmt.Errorf("collection %q: %w", id, err)
 	}
+	if c.ID != id {
+		return model.Collection{}, "", fmt.Errorf("collection id %q does not match filename %q", c.ID, id)
+	}
 	return c, Revision(hashBytes(data)), nil
 }
 

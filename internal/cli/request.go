@@ -289,7 +289,7 @@ func requestDelete(ctx context.Context, inv invocation, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "req: %q is a folder, not a request (use `req folder delete %s` to delete it)\n", path, path)
 		return exitUsage
 	}
-	if err := ws.DeleteItem(ctx, path); err != nil {
+	if err := ws.DeleteItem(ctx, path, rp.Rev); err != nil {
 		fmt.Fprintf(stderr, "req: %v\n", err)
 		return usageOrStorage(err)
 	}

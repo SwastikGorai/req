@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -54,6 +55,10 @@ func Send(ctx context.Context, client *http.Client, method, url string, body io.
 		}
 	}
 	for name, values := range headers {
+		if strings.EqualFold(name, "Host") && len(values) > 0 {
+			req.Host = values[0]
+			continue
+		}
 		for _, value := range values {
 			req.Header.Add(name, value)
 		}

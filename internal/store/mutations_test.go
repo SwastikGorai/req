@@ -486,18 +486,18 @@ func TestDeleteItemAndCollection(t *testing.T) {
 	}
 
 	// The collection root is not an item; deleting it is DeleteCollection.
-	if err := ws.DeleteItem(ctx, "API"); !errors.Is(err, ErrInvalidPath) {
+	if err := ws.DeleteItem(ctx, "API", ""); !errors.Is(err, ErrInvalidPath) {
 		t.Errorf("DeleteItem on a single-segment path: error = %v, want ErrInvalidPath", err)
 	}
-	if err := ws.DeleteItem(ctx, "API/Nope"); !errors.Is(err, ErrNotFound) {
+	if err := ws.DeleteItem(ctx, "API/Nope", ""); !errors.Is(err, ErrNotFound) {
 		t.Errorf("DeleteItem on a missing item: error = %v, want ErrNotFound", err)
 	}
-	if err := ws.DeleteItem(ctx, "Nope/Ping"); !errors.Is(err, ErrNotFound) {
+	if err := ws.DeleteItem(ctx, "Nope/Ping", ""); !errors.Is(err, ErrNotFound) {
 		t.Errorf("DeleteItem on a missing collection: error = %v, want ErrNotFound", err)
 	}
 
 	// Deleting a request removes just it.
-	if err := ws.DeleteItem(ctx, "API/Ping"); err != nil {
+	if err := ws.DeleteItem(ctx, "API/Ping", mustResolve(t, ws, ctx, "API/Ping").Rev); err != nil {
 		t.Fatalf("DeleteItem(API/Ping): %v", err)
 	}
 	if _, err := ws.ResolvePath(ctx, "API/Ping"); !errors.Is(err, ErrNotFound) {
@@ -506,7 +506,7 @@ func TestDeleteItemAndCollection(t *testing.T) {
 	mustResolve(t, ws, ctx, "API/Auth/Login")
 
 	// Deleting a folder removes its whole subtree.
-	if err := ws.DeleteItem(ctx, "API/Auth"); err != nil {
+	if err := ws.DeleteItem(ctx, "API/Auth", mustResolve(t, ws, ctx, "API/Auth").Rev); err != nil {
 		t.Fatalf("DeleteItem(API/Auth): %v", err)
 	}
 	if _, err := ws.ResolvePath(ctx, "API/Auth"); !errors.Is(err, ErrNotFound) {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"slices"
 
 	"req/internal/model"
 )
@@ -127,15 +128,6 @@ func (w *Workspace) RenameCollection(ctx context.Context, oldName, newName strin
 	if !model.ValidName(newName) {
 		return fmt.Errorf("collection name %q is invalid (names must be non-empty, must not be %q or %q, and must contain no / or \\)", newName, ".", "..")
 	}
-	existing, err := w.ListCollections(ctx)
-	if err != nil {
-		return err
-	}
-	for _, c := range existing {
-		if c.ID != coll.ID && c.Name == newName {
-			return fmt.Errorf("collection %q already exists: %w", newName, ErrDuplicateName)
-		}
-	}
 	coll.Name = newName
 	if err := w.SaveCollection(ctx, coll, rev); err != nil {
 		return fmt.Errorf("saving collection %q: %w", coll.Name, err)
@@ -246,12 +238,12 @@ func (w *Workspace) MoveItem(ctx context.Context, src, destParent string) error 
 	}
 	// A move under the current parent changes nothing — and is not a
 	// cycle, so it is checked first.
-	if sameSegments(destRest, srcRest[:len(srcRest)-1]) {
+	if slices.Equal(destRest, srcRest[:len(srcRest)-1]) {
 		return nil
 	}
 	// A folder cannot move into itself or a descendant: the destination
 	// path would contain the moved item.
-	if len(destRest) >= len(srcRest) && sameSegments(destRest[:len(srcRest)], srcRest) {
+	if len(destRest) >= len(srcRest) && slices.Equal(destRest[:len(srcRest)], srcRest) {
 		return fmt.Errorf("cannot move %q into itself or one of its descendants (%q): %w", src, destParent, ErrBadMove)
 	}
 	dest, err := resolveFolderChildren(&coll, destRest)
@@ -274,7 +266,8 @@ func (w *Workspace) MoveItem(ctx context.Context, src, destParent string) error 
 // path (≥2 segments). A missing item wraps ErrNotFound. The collection root
 // is not an item: deleting a collection is DeleteCollection, so a
 // single-segment path here wraps ErrInvalidPath with a pointer there.
-func (w *Workspace) DeleteItem(ctx context.Context, path string) error {
+// expected is the revision captured before confirmation or other user interaction.
+func (w *Workspace) DeleteItem(ctx context.Context, path string, expected Revision) error {
 	segments, err := SplitPath(path)
 	if err != nil {
 		return err
@@ -282,7 +275,7 @@ func (w *Workspace) DeleteItem(ctx context.Context, path string) error {
 	if len(segments) < 2 {
 		return fmt.Errorf("needs a path like %q — %q names no item (deleting a collection is DeleteCollection): %w", "Collection/Item", path, ErrInvalidPath)
 	}
-	coll, rev, err := w.collectionByName(ctx, segments[0])
+	coll, _, err := w.collectionByName(ctx, segments[0])
 	if err != nil {
 		return err
 	}
@@ -291,7 +284,7 @@ func (w *Workspace) DeleteItem(ctx context.Context, path string) error {
 		return err
 	}
 	*parent = append((*parent)[:idx], (*parent)[idx+1:]...)
-	if err := w.SaveCollection(ctx, coll, rev); err != nil {
+	if err := w.SaveCollection(ctx, coll, expected); err != nil {
 		return fmt.Errorf("saving collection %q: %w", coll.Name, err)
 	}
 	return nil
@@ -374,17 +367,4 @@ func resolveFolderChildren(coll *model.Collection, segments []string) (*[]model.
 		children = &it.Folder.Children
 	}
 	return children, nil
-}
-
-// sameSegments reports whether two path-segment lists are equal.
-func sameSegments(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }

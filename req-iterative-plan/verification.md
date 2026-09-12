@@ -53,3 +53,14 @@ Started from clean Phase 6 commit 943fa71. Re-ran the 89-test baseline, refined 
 - Final `rtk proxy gofmt -l internal cmd` and `rtk git diff --check`: exit 0, no output.
 
 No dependencies or remote writes were added during Phase 7. JSON file inputs remain buffered for validation; raw and multipart attachment contents stream. These changes accompany the Phase 7 implementation commit.
+
+## Post-Phase-7 review corrections
+
+Fixed revision checks across delete confirmation, stale script callback accounting, response-stream cancellation exit codes, Host header overrides and collection filename/ID validation. Removed redundant name scans and replaced handwritten slice equality with `slices.Equal`.
+
+- Five regression tests cover concurrent deletion edits, late callbacks, cancellation during response output, direct/saved Host overrides and mismatched collection IDs.
+- `rtk go test -count=1 ./...` and `rtk go test -race -count=1 ./...`: exit 0, 107 tests passed across 8 packages in each run.
+- `rtk go vet ./...` and `rtk go build ./...`: exit 0.
+- `rtk proxy gofmt -l internal cmd` and `rtk git diff --check`: exit 0, no output.
+
+These review corrections are staged separately from Phase 7 commit 93bc40c; Phase 8 remains next.

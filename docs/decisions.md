@@ -2,6 +2,13 @@
 
 Consequential implementation choices, newest phase first. Routine reversible choices stay in code; cross-phase consequences live here and in handoff.md.
 
+## Review corrections after Phase 7
+
+- `DeleteItem(ctx, path, expected Revision)` now requires the revision observed by the caller. Both request/folder deletion pass their resolved revision; a change during folder confirmation fails with a storage conflict and preserves the current tree.
+- Runtime completions check their generation before decrementing pending work. Old canceled requests cannot prematurely finish a subsequent script on the same engine.
+- Response-body cancellation returns 130, matching send-time cancellation. Explicit Host headers populate Go's Request.Host (first value), including saved variable references.
+- Collection loads reject filename/ID mismatches without rewriting. Name uniqueness remains enforced under SaveCollection's lock; redundant create/rename scans were removed. Slice comparisons use slices.Equal.
+
 ## Phase 7 — File uploads and body formats
 
 - **One body definition across CLI entry points:** `Overrides.Body *model.Body` replaces the byte/BodyMode pair; nil keeps the saved body. `send`, `run` and `request create` use the same body flag parser. `--body-file PATH`, `--json @PATH`, repeated `--urlencoded KEY=VALUE`, and repeated multipart `--form KEY=VALUE` / `--form-file KEY=PATH` are supported. Multipart text/file can mix; other body modes conflict. A leading @ in a form text value stays literal. Creation stores references without reading files.

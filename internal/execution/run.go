@@ -59,6 +59,9 @@ func Execute(ctx context.Context, o Outgoing, stdout, stderr io.Writer) int {
 		o.Method, o.URL, resp.StatusCode, http.StatusText(resp.StatusCode), resp.Duration.Truncate(time.Microsecond))
 	if _, err := io.Copy(stdout, resp.Body); err != nil {
 		fmt.Fprintf(stderr, "req: reading body: %v\n", err)
+		if ctx.Err() != nil {
+			return codeCanceled
+		}
 		return codeTransport
 	}
 	if o.FailOnHTTPError && resp.StatusCode >= http.StatusBadRequest {

@@ -191,10 +191,10 @@ func (e *engine) startHTTP(url string, settle func(httpResult)) {
 		defer e.workers.Done()
 		res := e.fetch(ctx, url)
 		e.enqueue(func() {
-			defer e.pending.Add(-1)
 			if !e.running || gen != e.runGen {
 				return // late completion after its run ended: discard
 			}
+			defer e.pending.Add(-1)
 			settle(res)
 		})
 	}()

@@ -71,15 +71,6 @@ func (w *Workspace) CreateCollection(ctx context.Context, name string) (model.Co
 	if !model.ValidName(name) {
 		return model.Collection{}, fmt.Errorf("collection name %q is invalid (names must be non-empty, must not be %q or %q, and must contain no / or \\)", name, ".", "..")
 	}
-	existing, err := w.ListCollections(ctx)
-	if err != nil {
-		return model.Collection{}, err
-	}
-	for _, c := range existing {
-		if c.Name == name {
-			return model.Collection{}, fmt.Errorf("collection %q already exists: %w", name, ErrDuplicateName)
-		}
-	}
 	c := model.Collection{
 		SchemaVersion: model.SchemaVersion,
 		ID:            model.NewID("col"),

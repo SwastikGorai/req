@@ -11,4 +11,6 @@
 
 ## Current execution mode
 
+Post-Phase-7 review fixes are staged separately from commit 93bc40c. `DeleteItem(ctx, path, expected Revision)` replaces the prior signature; both CLI callers now pass their observed revision. Other fixes cover stale runtime completion accounting, cancellation during response streaming, Host overrides and collection filename/ID validation. Redundant name scans and handwritten slice equality were removed. Five regression tests accompany the changes; verification.md records their checks. No new phase or commit is implied by this review follow-up.
+
 The custom subagent-implementer from the historical handoff is unavailable in this session. Current user/platform instructions govern execution. No standing commit permission or mandatory delegation is inferred from earlier one-shot requests.

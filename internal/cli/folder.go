@@ -233,7 +233,7 @@ func folderDelete(ctx context.Context, inv invocation, stderr io.Writer) int {
 	if proceed, code := requireDeleteApproval("folder", path, len(rp.Item.Folder.Children), yes, stderr); !proceed {
 		return code
 	}
-	if err := ws.DeleteItem(ctx, path); err != nil {
+	if err := ws.DeleteItem(ctx, path, rp.Rev); err != nil {
 		fmt.Fprintf(stderr, "req: %v\n", err)
 		return usageOrStorage(err)
 	}
