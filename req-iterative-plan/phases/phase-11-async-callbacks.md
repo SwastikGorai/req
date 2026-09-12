@@ -6,7 +6,7 @@
 
 ## Do this now
 
-1. [ ] Promote the spike owner loop to production runtime lifecycle.
+1. [ ] Extend the production owner loop established in Phase 8 with tracked auxiliary HTTP work.
 2. [ ] Implement pm.sendRequest string URL and supported request-object conversion.
 3. [ ] Schedule context-aware HTTP and deliver (err, response) only on owner goroutine.
 4. [ ] Wait for callback work before advancing scripts and enforce request/concurrency limits.

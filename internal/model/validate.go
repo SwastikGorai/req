@@ -57,13 +57,8 @@ func (c *Collection) Validate() error {
 	if !ValidName(c.Name) {
 		return fmt.Errorf("collection name %q is invalid", c.Name)
 	}
-	for name := range c.Variables {
-		if name == "" {
-			return fmt.Errorf("collection variable with an empty name")
-		}
-		if strings.HasPrefix(name, "env:") {
-			return fmt.Errorf("collection variable %q uses the reserved env: prefix", name)
-		}
+	if err := ValidateVariables(c.Variables); err != nil {
+		return err
 	}
 	if err := validateAuth(c.Auth, "collection auth"); err != nil {
 		return err

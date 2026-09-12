@@ -64,6 +64,7 @@ func requestCreate(ctx context.Context, inv invocation, stderr io.Writer) int {
 		haveMethod, haveURL bool
 		bodyMode, bodyText  string
 		parents             bool
+		authFlags           variableFlags
 	)
 	value := func(i *int, name string) (string, error) {
 		*i++
@@ -143,6 +144,10 @@ func requestCreate(ctx context.Context, inv invocation, stderr io.Writer) int {
 			bodyMode, bodyText = "json", v
 		case "--parents":
 			parents = true
+		case "--bearer", "--basic-user", "--basic-password", "--no-auth":
+			if _, err := authFlags.parse(inv.args, &i); err != nil {
+				return fail("%v", err)
+			}
 		default:
 			if strings.HasPrefix(arg, "-") && arg != "-" {
 				return fail("unknown flag %q", arg)
@@ -167,7 +172,10 @@ func requestCreate(ctx context.Context, inv invocation, stderr io.Writer) int {
 		return fail("invalid HTTP method %q", method)
 	}
 
-	req := model.Request{Method: method, URL: rawURL}
+	if err := authFlags.validate(); err != nil {
+		return fail("%v", err)
+	}
+	req := model.Request{Method: method, URL: rawURL, Auth: authFlags.auth}
 	for _, q := range queries {
 		req.Query = append(req.Query, model.Entry{Key: q[0], Value: q[1], Enabled: true})
 	}

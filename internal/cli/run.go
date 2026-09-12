@@ -38,7 +38,15 @@ func runRun(ctx context.Context, inv invocation, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "req: %q is a folder, not a request\n", parsed.path)
 		return exitUsage
 	}
-	outgoing, err := execution.Prepare(*rp.Item.Request, parsed.ov, parsed.pol)
+	scope, err := parsed.variables.scope(ctx, ws, rp.Collection.Variables)
+	if err != nil {
+		fmt.Fprintf(stderr, "req: %v\n", err)
+		return usageOrStorage(err)
+	}
+	parsed.pol.Variables = scope
+	saved := *rp.Item.Request
+	saved.Auth = rp.Auth
+	outgoing, err := execution.Prepare(saved, parsed.ov, parsed.pol)
 	if err != nil {
 		fmt.Fprintf(stderr, "req: %v\n", err)
 		return exitUsage
@@ -50,9 +58,10 @@ func runRun(ctx context.Context, inv invocation, stdout, stderr io.Writer) int {
 // and policy fields that were not given keep their zero value, which
 // execution.Prepare interprets as "keep the saved value".
 type runArgs struct {
-	path string
-	ov   execution.Overrides
-	pol  execution.Policy
+	variables variableFlags
+	path      string
+	ov        execution.Overrides
+	pol       execution.Policy
 }
 
 // parseRunArgs parses and validates run arguments. Unknown flags, missing
@@ -152,6 +161,12 @@ func parseRunArgs(args []string) (runArgs, error) {
 		case "--fail":
 			parsed.pol.FailOnHTTPError = true
 		default:
+			if handled, err := parsed.variables.parse(args, &i); handled {
+				if err != nil {
+					return runArgs{}, err
+				}
+				continue
+			}
 			if strings.HasPrefix(arg, "-") && arg != "-" {
 				return runArgs{}, fmt.Errorf("unknown flag %q", arg)
 			}
@@ -163,5 +178,6 @@ func parseRunArgs(args []string) (runArgs, error) {
 	}
 	parsed.path = positional[0]
 	parsed.pol.FollowRedirects = !noFollow
-	return parsed, nil
+	parsed.ov.Auth = parsed.variables.auth
+	return parsed, parsed.variables.validate()
 }

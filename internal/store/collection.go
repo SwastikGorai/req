@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -43,7 +44,7 @@ func (w *Workspace) LoadCollection(_ context.Context, id string) (model.Collecti
 	if err := dec.Decode(&c); err != nil {
 		return model.Collection{}, "", fmt.Errorf("collection %q: invalid JSON: %w", id, err)
 	}
-	if dec.More() {
+	if dec.Decode(new(any)) != io.EOF {
 		return model.Collection{}, "", fmt.Errorf("collection %q: trailing data after the JSON document", id)
 	}
 	if err := c.Validate(); err != nil {
@@ -89,6 +90,15 @@ func (w *Workspace) SaveCollection(ctx context.Context, c model.Collection, expe
 		}
 	default:
 		return fmt.Errorf("collection %q: %w", c.ID, err)
+	}
+	collections, err := w.ListCollections(ctx)
+	if err != nil {
+		return err
+	}
+	for _, existing := range collections {
+		if existing.ID != c.ID && existing.Name == c.Name {
+			return fmt.Errorf("collection %q already exists: %w", c.Name, ErrDuplicateName)
+		}
 	}
 	return writeFileAtomic(path, data, 0o644)
 }

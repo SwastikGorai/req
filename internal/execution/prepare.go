@@ -1,6 +1,8 @@
 package execution
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -11,9 +13,6 @@ import (
 
 // httpToken matches the RFC 9110 token character set, used for HTTP methods.
 var httpToken = regexp.MustCompile(`^[!#$%&'*+\-.^_` + "`" + `|~0-9A-Za-z]+$`)
-
-// placeholder matches an unresolved {{variable}} reference.
-var placeholder = regexp.MustCompile(`\{\{[^{}]*\}\}`)
 
 // Prepare merges saved and overrides into one Outgoing request. Only enabled
 // saved entries are used; override entries are appended after the saved ones.
@@ -26,16 +25,17 @@ var placeholder = regexp.MustCompile(`\{\{[^{}]*\}\}`)
 // is not supported for execution yet. A Content-Type default (json→
 // application/json, raw→text/plain) is applied only when no explicit
 // Content-Type header exists (case-insensitive) among the merged headers.
-// Any remaining {{...}} placeholder in method, URL, headers or body fails
-// with an error naming the placeholder — a literal placeholder is never
-// sent. Policy is copied through verbatim.
+// Variables resolve after structural overrides, in a single pass. Missing
+// variables and invalid resolved JSON fail before HTTP; explicit Authorization
+// headers take precedence over generated auth.
 func Prepare(saved model.Request, ov Overrides, pol Policy) (Outgoing, error) {
 	method := ov.Method
 	if method == "" {
 		method = saved.Method
 	}
-	if m := placeholder.FindString(method); m != "" {
-		return Outgoing{}, errUnresolved(m, "method")
+	method, err := pol.Variables.ResolveString(method, "method")
+	if err != nil {
+		return Outgoing{}, err
 	}
 	method = strings.ToUpper(method)
 	if !httpToken.MatchString(method) {
@@ -46,31 +46,87 @@ func Prepare(saved model.Request, ov Overrides, pol Policy) (Outgoing, error) {
 	if rawURL == "" {
 		rawURL = saved.URL
 	}
-	if m := placeholder.FindString(rawURL); m != "" {
-		return Outgoing{}, errUnresolved(m, "URL")
+	rawURL, err = pol.Variables.ResolveString(rawURL, "URL")
+	if err != nil {
+		return Outgoing{}, err
 	}
-	if u, err := url.Parse(rawURL); err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+	if u, err := url.Parse(rawURL); err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
 		return Outgoing{}, fmt.Errorf("URL must be absolute http or https, got %q", rawURL)
 	}
 
 	headers := append(savedEntries(saved.Headers), ov.Headers...)
-	for _, h := range headers {
-		if m := placeholder.FindString(h[0]); m != "" {
-			return Outgoing{}, errUnresolved(m, fmt.Sprintf("header %q", h[0]))
-		}
-		if m := placeholder.FindString(h[1]); m != "" {
-			return Outgoing{}, errUnresolved(m, fmt.Sprintf("header %q value", h[0]))
+	queries := append(savedEntries(saved.Query), ov.Queries...)
+	for _, group := range []struct {
+		location string
+		entries  [][2]string
+	}{{"header", headers}, {"query", queries}} {
+		location, entries := group.location, group.entries
+		for i := range entries {
+			for j := range entries[i] {
+				entries[i][j], err = pol.Variables.ResolveString(entries[i][j], fmt.Sprintf("%s[%d][%d]", location, i, j))
+				if err != nil {
+					return Outgoing{}, err
+				}
+			}
+			if entries[i][0] == "" {
+				return Outgoing{}, fmt.Errorf("empty %s key", location)
+			}
+			if location == "header" && (!httpToken.MatchString(entries[i][0]) || strings.ContainsAny(entries[i][1], "\r\n")) {
+				return Outgoing{}, fmt.Errorf("invalid header at index %d", i)
+			}
 		}
 	}
-
-	queries := append(savedEntries(saved.Query), ov.Queries...)
 
 	body, bodyKind, err := resolveBody(saved, ov)
 	if err != nil {
 		return Outgoing{}, err
 	}
-	if m := placeholder.FindString(string(body)); m != "" {
-		return Outgoing{}, errUnresolved(m, "body")
+	if body != nil {
+		resolved, err := pol.Variables.ResolveString(string(body), "body")
+		if err != nil {
+			return Outgoing{}, err
+		}
+		body = []byte(resolved)
+	}
+	if bodyKind == "json" && !json.Valid(body) {
+		return Outgoing{}, fmt.Errorf("body is not valid JSON")
+	}
+	auth := saved.Auth
+	if ov.Auth != nil {
+		auth = ov.Auth
+	}
+	if auth != nil && !hasHeader(headers, "Authorization") {
+		var value string
+		switch auth.Type {
+		case "inherit", "none":
+		case "bearer":
+			token, err := pol.Variables.ResolveString(auth.Token, "auth token")
+			if err != nil {
+				return Outgoing{}, err
+			}
+			value = "Bearer " + token
+		case "basic":
+			user, err := pol.Variables.ResolveString(auth.Username, "auth username")
+			if err != nil {
+				return Outgoing{}, err
+			}
+			password, err := pol.Variables.ResolveString(auth.Password, "auth password")
+			if err != nil {
+				return Outgoing{}, err
+			}
+			if strings.Contains(user, ":") {
+				return Outgoing{}, fmt.Errorf("basic username cannot contain a colon")
+			}
+			value = "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+password))
+		default:
+			return Outgoing{}, fmt.Errorf("unsupported auth type %q", auth.Type)
+		}
+		if strings.ContainsAny(value, "\r\n") {
+			return Outgoing{}, fmt.Errorf("invalid auth header")
+		}
+		if value != "" {
+			headers = append(headers, [2]string{"Authorization", value})
+		}
 	}
 
 	if body != nil && !hasHeader(headers, "Content-Type") {
@@ -163,10 +219,4 @@ func appendQueries(rawURL string, entries [][2]string) (string, error) {
 		u.RawQuery += sep + url.QueryEscape(kv[0]) + "=" + url.QueryEscape(kv[1])
 	}
 	return u.String(), nil
-}
-
-// errUnresolved reports an unresolved {{variable}} placeholder found in the
-// named field.
-func errUnresolved(ph, where string) error {
-	return fmt.Errorf("unresolved variable %s in %s (variables arrive with environment support; none are defined in this execution)", ph, where)
 }

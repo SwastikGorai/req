@@ -6,7 +6,7 @@
 
 ## Do this now
 
-1. [ ] Add ordered script arrays and editor support preserving script boundaries.
+1. [ ] Reuse the existing model.Scripts ordered arrays and validation; add editor support preserving script boundaries.
 2. [ ] Collect ancestor scripts and create one runtime per execution.
 3. [ ] Run pre scripts before final variable resolution, then HTTP, then post scripts.
 4. [ ] Implement --no-scripts, deadline, skip and phase-aware errors.
@@ -30,6 +30,7 @@ Stuck on any step? See **Design details** below.
 *Reference material — consult if a task is unclear. Before starting, refine function signatures against the completed code; preserve the behavioral contract linked below.*
 
 - internal/execution/lifecycle.go owns phase order; HTTP package knows nothing about scripts.
+- Reuse the Phase 1 runtime owner loop from the first production script. Introduce bounded response buffering and cancellation/error precedence here, before exposing response data; Phase 12 extends auxiliary limits and Phase 18 adds output modes. Do not defer main-response safety until Phase 18.
 - An HTTP error status still runs post scripts; a transport failure does not. Use execution flow in hld.md.
 - Full fixed behavior and edge cases: [IMPLEMENTATION.md](../IMPLEMENTATION.md). Record deviations explicitly; a shorter phase file does not remove requirements.
 

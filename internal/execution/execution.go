@@ -3,7 +3,11 @@
 // shared by `req send` and `req run`.
 package execution
 
-import "time"
+import (
+	"req/internal/model"
+	"req/internal/variables"
+	"time"
+)
 
 // Outgoing is one fully resolved outgoing request plus execution policy.
 type Outgoing struct {
@@ -20,6 +24,7 @@ type Outgoing struct {
 // Overrides are structural CLI overrides applied to an execution copy of a
 // saved request; empty fields keep the saved value.
 type Overrides struct {
+	Auth        *model.Auth
 	Method, URL string
 	Queries     [][2]string // appended AFTER saved query entries
 	Headers     [][2]string // appended AFTER saved header entries
@@ -29,6 +34,7 @@ type Overrides struct {
 
 // Policy is the per-execution HTTP policy from CLI flags.
 type Policy struct {
+	Variables       *variables.Scope
 	Timeout         time.Duration
 	InsecureTLS     bool
 	FollowRedirects bool

@@ -2,6 +2,15 @@
 
 Consequential implementation choices, newest phase first. Routine reversible choices stay in code; cross-phase consequences live here and in handoff.md.
 
+## Phase 6 and prerequisite audit — 2026-09-12
+
+- **Environment schema:** `{schema_version: 1, name, variables}`; variables are JSON values. Filenames use 1–64 ASCII letters/digits/underscore/hyphen and reject Windows device names. This portable subset excludes spaces/punctuation. Unknown fields, future versions, filename/name mismatches and reserved `env:` keys fail. Writes reuse lock/hash/atomic replacement and use 0600 where supported; gitignore is not encryption. Disabled imported values remain Phase 13 work.
+- **Variables:** CLI strings (last repeated key wins) > local map > environment > collection. Missing differs from null. Strings interpolate directly; other values use compact JSON. One pass only; remaining placeholders fail with field location. Only explicit `{{env:NAME}}` reads the process environment. Phase 9 must keep CLI overrides inaccessible to script setters.
+- **Auth:** Resolve nearest explicit collection/folder/request auth while walking the stored path, then apply CLI auth to the execution copy. Explicit Authorization wins, so unused inherited credential references need not resolve. Basic credentials must be supplied together; usernames containing a colon fail. Modes are exclusive. Request creation saves auth references verbatim.
+- **Editor correction supersedes Phase 5's whitespace-only limitation:** quoted executable paths/arguments are grouped without shell evaluation; backslashes remain literal for Windows paths. Request/environment edits share strict decode, revisions and recovery; if conflict recovery fails, the temporary edit remains and is named. Shell expansions and shell escape syntax are not supported.
+- **Audit corrections:** query placeholders and saved JSON validate at the final request boundary. Native JSON requires EOF after the document. Collection name uniqueness is enforced under SaveCollection's lock after revision validation, preserving future-schema conflict precedence. See req-iterative-plan/verification.md.
+- **Script sequencing:** ordered script models already exist. Phase 8 reuses the owner loop and introduces response limits before response APIs; Phase 11 extends it for auxiliary work. These prerequisites cannot wait for Phase 18 output modes.
+
 ## Phase 5 — Editing and organizing requests
 
 - **`UpdateRequest` takes the caller's source revision.** The first cut loaded the collection internally and saved against that fresh revision, which would have let a long editor session silently overwrite a competing save (exactly what the storage contract forbids). Now `UpdateRequest(path, req, expected)` forwards `expected` to `SaveCollection`, whose under-lock reread/compare is the single authoritative check — the CLI keeps no pre-check of its own, so there is no check-then-save window. An editor conflict therefore produces `*ConflictError` (exit 7) with the rejected candidate preserved in `.req/recovery/`.

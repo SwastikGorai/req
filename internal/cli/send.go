@@ -13,6 +13,7 @@ import (
 
 	"req/internal/execution"
 	"req/internal/model"
+	"req/internal/store"
 )
 
 type bodyMode uint8
@@ -25,16 +26,17 @@ const (
 
 // sendOptions is the validated configuration of one direct request.
 type sendOptions struct {
-	method   string
-	rawURL   string
-	headers  [][2]string // ordered key/value entries; duplicates preserved
-	queries  [][2]string // ordered key/value entries; duplicates preserved
-	bodyMode bodyMode
-	body     []byte
-	timeout  time.Duration
-	insecure bool
-	noFollow bool
-	fail     bool
+	variables variableFlags
+	method    string
+	rawURL    string
+	headers   [][2]string // ordered key/value entries; duplicates preserved
+	queries   [][2]string // ordered key/value entries; duplicates preserved
+	bodyMode  bodyMode
+	body      []byte
+	timeout   time.Duration
+	insecure  bool
+	noFollow  bool
+	fail      bool
 }
 
 // httpToken matches the RFC 9110 token character set, used for methods and
@@ -44,15 +46,30 @@ var httpToken = regexp.MustCompile(`^[!#$%&'*+\-.^_` + "`" + `|~0-9A-Za-z]+$`)
 // runSend executes `req send`. The body goes to stdout; status, elapsed time
 // and errors go to stderr. HTTP >=400 is a received response: it exits 4
 // only with --fail.
-func runSend(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	opts, err := parseSendArgs(args)
+func runSend(ctx context.Context, inv invocation, stdout, stderr io.Writer) int {
+	opts, err := parseSendArgs(inv.args)
 	if err != nil {
 		fmt.Fprintf(stderr, "req: %v\nusage: req send METHOD URL [flags]\n", err)
 		return exitUsage
 	}
 	// A direct send has nothing saved: every value arrives via the
 	// overrides and Prepare only validates what parsing already checked.
-	outgoing, err := execution.Prepare(model.Request{}, sendOverrides(opts), sendPolicy(opts))
+	var ws *store.Workspace
+	if opts.variables.env != "" {
+		var code int
+		ws, code = openWorkspace(inv, stderr)
+		if ws == nil {
+			return code
+		}
+	}
+	scope, err := opts.variables.scope(ctx, ws, nil)
+	if err != nil {
+		fmt.Fprintf(stderr, "req: %v\n", err)
+		return usageOrStorage(err)
+	}
+	policy := sendPolicy(opts)
+	policy.Variables = scope
+	outgoing, err := execution.Prepare(model.Request{}, sendOverrides(opts), policy)
 	if err != nil {
 		fmt.Fprintf(stderr, "req: %v\n", err)
 		return exitUsage
@@ -63,6 +80,7 @@ func runSend(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 // sendOverrides translates parsed send flags into execution overrides.
 func sendOverrides(opts *sendOptions) execution.Overrides {
 	ov := execution.Overrides{
+		Auth:    opts.variables.auth,
 		Method:  opts.method,
 		URL:     opts.rawURL,
 		Queries: opts.queries,
@@ -160,7 +178,7 @@ func parseSendArgs(args []string) (*sendOptions, error) {
 			if opts.bodyMode != bodyNone {
 				return nil, errors.New("--json conflicts with another body flag")
 			}
-			if !json.Valid([]byte(v)) {
+			if !strings.Contains(v, "{{") && !json.Valid([]byte(v)) {
 				return nil, errors.New("--json value is not valid JSON")
 			}
 			opts.bodyMode, opts.body = bodyJSON, []byte(v)
@@ -181,6 +199,12 @@ func parseSendArgs(args []string) (*sendOptions, error) {
 		case "--fail":
 			opts.fail = true
 		default:
+			if handled, err := opts.variables.parse(args, &i); handled {
+				if err != nil {
+					return nil, err
+				}
+				continue
+			}
 			if strings.HasPrefix(arg, "-") && arg != "-" {
 				return nil, fmt.Errorf("unknown flag %q", arg)
 			}
@@ -218,10 +242,10 @@ func parseSendArgs(args []string) (*sendOptions, error) {
 	if !httpToken.MatchString(opts.method) {
 		return nil, fmt.Errorf("invalid HTTP method %q", opts.method)
 	}
-	if u, err := url.Parse(opts.rawURL); err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+	if u, err := url.Parse(opts.rawURL); !strings.Contains(opts.rawURL, "{{") && (err != nil || (u.Scheme != "http" && u.Scheme != "https")) {
 		return nil, fmt.Errorf("URL must be absolute http or https, got %q", opts.rawURL)
 	}
-	return opts, nil
+	return opts, opts.variables.validate()
 }
 
 // parseHeaderEntry validates one "Name: value" header entry.

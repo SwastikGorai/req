@@ -1,6 +1,6 @@
 # req — Implementation specification
 
-Status: approved-scope implementation blueprint; no implementation is claimed complete.
+Status: approved behavioral contract. Implementation status and verification belong to PLAN.md and the phase checkpoints.
 Version: 1.0 | Prepared: 2026-09-05
 
 ## 1. Intent and document authority

@@ -41,7 +41,9 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 	switch inv.args[0] {
 	case "send":
-		return runSend(ctx, inv.args[1:], stdout, stderr)
+		return runSend(ctx, invocation{args: inv.args[1:], workspace: inv.workspace}, stdout, stderr)
+	case "env":
+		return runEnv(ctx, invocation{args: inv.args[1:], workspace: inv.workspace}, stdout, stderr)
 	case "init":
 		return runInit(invocation{args: inv.args[1:], workspace: inv.workspace}, stdout, stderr)
 	case "collection":
@@ -98,7 +100,7 @@ Send flags:
   req folder delete PATH [--yes]                 delete a folder and its subtree
   req request create PATH --method M --url U     save a request; also accepts
                                                  -H, --query, --body, --json
-                                                 and --parents
+                                                 auth flags and --parents
   req request list PATH                          list requests as
                                                  NAME<TAB>METHOD<TAB>URL
   req request show PATH                          print one saved request as JSON
@@ -116,7 +118,18 @@ Send flags:
   req --version
   req help
 
-Environment and scripting commands arrive with later phases.
+  req env create|list|edit|delete [NAME]          manage environments
+
+Send/run variable and auth flags:
+  --env NAME                select workspace environment
+  --var KEY=VALUE           highest-priority variable; repeat (last wins)
+  --bearer TOKEN            bearer auth (supports {{references}})
+  --basic-user USER --basic-password PASSWORD  basic auth; both required
+  --no-auth                 disable inherited auth
+                            Auth modes conflict; explicit Authorization wins.
+  {{env:NAME}}              read one process environment variable explicitly
+
+Scripting commands arrive with later phases.
 `)
 	return code
 }

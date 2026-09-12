@@ -1,0 +1,39 @@
+package variables
+
+import (
+	"strings"
+	"testing"
+)
+
+func TestVariablePrecedence(t *testing.T) {
+	s := &Scope{CLI: map[string]any{"v": "cli"}, Local: map[string]any{"v": "local"}, Environment: map[string]any{"v": "env"}, Collection: map[string]any{"v": "collection", "null": nil}}
+	for _, step := range []struct {
+		want  string
+		layer map[string]any
+	}{{"cli", s.CLI}, {"local", s.Local}, {"env", s.Environment}, {"collection", s.Collection}} {
+		if got, _ := s.Get("v"); got != step.want {
+			t.Fatalf("got %v, want %s", got, step.want)
+		}
+		delete(step.layer, "v")
+	}
+	if _, ok := s.Get("v"); ok {
+		t.Fatal("missing key exists")
+	}
+	if v, ok := s.Get("null"); !ok || v != nil {
+		t.Fatal("null treated as missing")
+	}
+}
+
+func TestSinglePassVariables(t *testing.T) {
+	t.Setenv("REQ_TEST_VALUE", "process")
+	s := &Scope{Collection: map[string]any{"n": 2, "object": map[string]any{"a": true}, "cycle": "{{n}}"}}
+	got, err := s.ResolveString(`{{n}}/{{object}}/{{env:REQ_TEST_VALUE}}`, "body")
+	if err != nil || got != `2/{"a":true}/process` {
+		t.Fatalf("%s: %v", got, err)
+	}
+	for _, value := range []string{"{{missing}}", "{{cycle}}", "{{env:REQ_TEST_UNSET}}"} {
+		if _, err := s.ResolveString(value, "body"); err == nil || !strings.Contains(err.Error(), "body") {
+			t.Fatalf("%q: %v", value, err)
+		}
+	}
+}

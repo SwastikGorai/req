@@ -28,7 +28,7 @@ flowchart TD
 
 ## Key decisions & trade-offs
 
-- Native Go HTTP plus embedded JavaScript preserves a single-binary experience. Goja is the candidate, gated by Phase 1 rather than assumed compatible.
+- Native Go HTTP plus embedded JavaScript preserves a single-binary experience. Phase 1 selected and pinned Goja; its existing owner-loop spike is not yet the production Postman API.
 - One JSON file per collection keeps folders/requests inspectable and single-file CRUD atomic. Variable persistence across two files adds a small recovery journal late in the plan.
 - Compatibility is explicit: the supported pm surface is in IMPLEMENTATION.md. Unsupported dynamic calls fail at runtime; imports cannot statically prove arbitrary JS compatibility.
 - Variables resolve after pre scripts, allowing generated tokens to affect the actual outgoing request. CLI variable overrides stay highest priority.
@@ -67,4 +67,4 @@ flowchart TD
 - [Postman pm.sendRequest](https://learning.postman.com/docs/tests-and-scripts/write-scripts/postman-sandbox-reference/pm-send-request): auxiliary HTTP requires asynchronous completion handling.
 - [Postman collection schemas](https://schema.getpostman.com/) and [cURL manual](https://curl.se/docs/manpage.html): verify exact accepted wire representations and flag semantics while building import adapters.
 
-Research informs the architecture; no dependency installation or feasibility test has been performed as part of producing this plan.
+Phase 1 records the dependency pin and feasibility evidence. Production script compatibility remains work for Phases 8–12.

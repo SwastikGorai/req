@@ -26,6 +26,7 @@ func SplitPath(path string) ([]string, error) {
 // name); Item is the resolved item, or nil when the path stops at the
 // collection root.
 type ResolvedPath struct {
+	Auth       *model.Auth // nearest explicit auth in the resolved hierarchy
 	Collection model.Collection
 	Rev        Revision
 	Segments   []string
@@ -48,6 +49,7 @@ func (w *Workspace) ResolvePath(ctx context.Context, path string) (ResolvedPath,
 		return ResolvedPath{}, err
 	}
 	rp := ResolvedPath{Collection: coll, Rev: rev, Segments: segments}
+	rp.Auth = coll.Auth
 	children := coll.Items
 	for i, seg := range segments[1:] {
 		idx := findChild(children, seg)
@@ -55,6 +57,15 @@ func (w *Workspace) ResolvePath(ctx context.Context, path string) (ResolvedPath,
 			return ResolvedPath{}, fmt.Errorf("no item named %q: %w", seg, ErrNotFound)
 		}
 		it := children[idx]
+		var auth *model.Auth
+		if it.Folder != nil {
+			auth = it.Folder.Auth
+		} else {
+			auth = it.Request.Auth
+		}
+		if auth != nil && auth.Type != "inherit" {
+			rp.Auth = auth
+		}
 		if i == len(segments)-2 { // last segment: this is the resolved item
 			rp.Item = &it
 			break
