@@ -45,6 +45,14 @@ func Send(ctx context.Context, client *http.Client, method, url string, body io.
 	if req.URL.Scheme != "http" && req.URL.Scheme != "https" {
 		return nil, fmt.Errorf("unsupported URL scheme %q: only http and https are allowed", req.URL.Scheme)
 	}
+	if stream, ok := body.(*bodyReader); ok {
+		req.ContentLength = stream.source.ContentLength
+		req.GetBody = func() (io.ReadCloser, error) { return stream.source.Open(ctx) }
+		if req.ContentLength == 0 {
+			req.Body = http.NoBody
+			req.GetBody = func() (io.ReadCloser, error) { return http.NoBody, nil }
+		}
+	}
 	for name, values := range headers {
 		for _, value := range values {
 			req.Header.Add(name, value)

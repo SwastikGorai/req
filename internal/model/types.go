@@ -92,19 +92,21 @@ type Provenance struct {
 // exactly one file reference, never both; the remaining modes are structured
 // entry lists.
 type Body struct {
-	Type       string           `json:"type"` // "none", "raw", "json", "urlencoded" or "multipart"
-	Text       string           `json:"text,omitempty"`
-	File       string           `json:"file,omitempty"`
-	URLEncoded []Entry          `json:"urlencoded,omitempty"`
-	Multipart  []MultipartField `json:"multipart,omitempty"`
+	Type          string           `json:"type"` // "none", "raw", "json", "urlencoded" or "multipart"
+	Text          *string          `json:"text,omitempty"`
+	File          string           `json:"file,omitempty"`
+	FileUntrusted bool             `json:"file_untrusted,omitempty"`
+	URLEncoded    []Entry          `json:"urlencoded,omitempty"`
+	Multipart     []MultipartField `json:"multipart,omitempty"`
 }
 
 // MultipartField is one multipart entry: a text value or a file reference.
 type MultipartField struct {
-	Key         string `json:"key"`
-	Value       string `json:"value,omitempty"`
-	File        string `json:"file,omitempty"`
-	Enabled     bool   `json:"enabled"`
-	ContentType string `json:"content_type,omitempty"`
-	Filename    string `json:"filename,omitempty"`
+	Key           string  `json:"key"`
+	Value         *string `json:"value,omitempty"`
+	File          string  `json:"file,omitempty"`
+	FileUntrusted bool    `json:"file_untrusted,omitempty"`
+	Enabled       bool    `json:"enabled"`
+	ContentType   string  `json:"content_type,omitempty"`
+	Filename      string  `json:"filename,omitempty"`
 }

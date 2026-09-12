@@ -1,6 +1,6 @@
 # req — Iterative Implementation Plan
 
-> Living document. Start here. Phases 0–6 are implemented and verified. See [verification.md](verification.md) for the 2026-09-12 re-audit, prerequisite corrections and continuation evidence. Next: Phase 7.
+> Living document. Start here. Phases 0–7 are implemented and verified. See [verification.md](verification.md) for the 2026-09-12 re-audit, prerequisite corrections and continuation evidence. Next: Phase 8.
 
 ## Goal & Context
 
@@ -25,7 +25,7 @@
 | 4 | Collections, folders and saved requests | [x] Complete | Phase 3 | [phase-4-saved-requests.md](phases/phase-4-saved-requests.md) |
 | 5 | Editing and organizing requests | [x] Complete | Phase 4 | [phase-5-editing.md](phases/phase-5-editing.md) |
 | 6 | Environments and inherited authentication | [x] Complete | Phase 5 | [phase-6-variables-auth.md](phases/phase-6-variables-auth.md) |
-| 7 | File uploads and body formats | [ ] Not started | Phase 6 | [phase-7-body-files.md](phases/phase-7-body-files.md) |
+| 7 | File uploads and body formats | [x] Complete | Phase 6 | [phase-7-body-files.md](phases/phase-7-body-files.md) |
 | 8 | Script storage and inherited execution | [ ] Not started | Phase 7 | [phase-8-script-lifecycle.md](phases/phase-8-script-lifecycle.md) |
 | 9 | Variables, request mutation and response APIs | [ ] Not started | Phase 8 | [phase-9-script-bindings.md](phases/phase-9-script-bindings.md) |
 | 10 | Tests and supported assertions | [ ] Not started | Phase 9 | [phase-10-assertions.md](phases/phase-10-assertions.md) |

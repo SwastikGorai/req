@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -44,6 +43,7 @@ func runRun(ctx context.Context, inv invocation, stdout, stderr io.Writer) int {
 		return usageOrStorage(err)
 	}
 	parsed.pol.Variables = scope
+	parsed.pol.BodyBase = ws.Root()
 	saved := *rp.Item.Request
 	saved.Auth = rp.Auth
 	outgoing, err := execution.Prepare(saved, parsed.ov, parsed.pol)
@@ -121,29 +121,14 @@ func parseRunArgs(args []string) (runArgs, error) {
 				return runArgs{}, err
 			}
 			parsed.ov.Queries = append(parsed.ov.Queries, q)
-		case "--body":
-			v, err := value(&i, "--body")
+		case "--body", "--body-file", "--json", "--form", "--form-file", "--urlencoded":
+			v, err := value(&i, arg)
 			if err != nil {
 				return runArgs{}, err
 			}
-			if parsed.ov.BodyMode != "" {
-				return runArgs{}, errors.New("--body conflicts with another body flag")
-			}
-			parsed.ov.BodyMode, parsed.ov.Body = "raw", []byte(v)
-		case "--json":
-			v, err := value(&i, "--json")
-			if err != nil {
+			if err := parseBodyFlag(&parsed.ov.Body, arg, v); err != nil {
 				return runArgs{}, err
 			}
-			if parsed.ov.BodyMode != "" {
-				return runArgs{}, errors.New("--json conflicts with another body flag")
-			}
-			// A {{reference}} may make the text valid JSON only after
-			// substitution, so it is passed on verbatim without validation.
-			if !strings.Contains(v, "{{") && !json.Valid([]byte(v)) {
-				return runArgs{}, errors.New("--json value is not valid JSON")
-			}
-			parsed.ov.BodyMode, parsed.ov.Body = "json", []byte(v)
 		case "--timeout":
 			v, err := value(&i, "--timeout")
 			if err != nil {

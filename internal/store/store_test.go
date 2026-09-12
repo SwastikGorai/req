@@ -65,7 +65,7 @@ func fixtureCollection() model.Collection {
 									{Key: "X-Trace", Value: "1", Enabled: true},
 									{Key: "X-Trace", Value: "2", Enabled: true},
 								},
-								Body: &model.Body{Type: "json", Text: `{"email":"{{email}}"}`},
+								Body: &model.Body{Type: "json", Text: &[]string{`{"email":"{{email}}"}`}[0]},
 							},
 						},
 					},

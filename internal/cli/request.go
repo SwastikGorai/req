@@ -52,17 +52,17 @@ func runRequest(ctx context.Context, inv invocation, stdout, stderr io.Writer) i
 }
 
 // requestCreate implements `req request create PATH --method M --url U
-// [-H Name:value]... [--query key=value]... [--body TEXT | --json JSON]
+// [-H Name:value]... [--query key=value]... [body flags]
 // [--parents]`. The URL is stored verbatim and may contain {{variables}}.
 func requestCreate(ctx context.Context, inv invocation, stderr io.Writer) int {
-	const createUsage = "usage: req request create PATH --method METHOD --url URL [-H Name:value]... [--query key=value]... [--body TEXT | --json JSON] [--parents]\n"
+	const createUsage = "usage: req request create PATH --method METHOD --url URL [header/query/body/auth flags] [--parents] (see req help)\n"
 
 	var (
 		positional          []string
 		headers, queries    [][2]string
 		method, rawURL      string
 		haveMethod, haveURL bool
-		bodyMode, bodyText  string
+		body                *model.Body
 		parents             bool
 		authFlags           variableFlags
 	)
@@ -119,29 +119,14 @@ func requestCreate(ctx context.Context, inv invocation, stderr io.Writer) int {
 				return fail("%v", err)
 			}
 			queries = append(queries, q)
-		case "--body":
-			v, err := value(&i, "--body")
+		case "--body", "--body-file", "--json", "--form", "--form-file", "--urlencoded":
+			v, err := value(&i, arg)
 			if err != nil {
 				return fail("%v", err)
 			}
-			if bodyMode != "" {
-				return fail("%s", "--body conflicts with another body flag")
-			}
-			bodyMode, bodyText = "raw", v
-		case "--json":
-			v, err := value(&i, "--json")
-			if err != nil {
+			if err := parseBodyFlag(&body, arg, v); err != nil {
 				return fail("%v", err)
 			}
-			if bodyMode != "" {
-				return fail("%s", "--json conflicts with another body flag")
-			}
-			// A {{reference}} may make the text valid JSON only after
-			// substitution, so it is stored verbatim without validation.
-			if !strings.Contains(v, "{{") && !json.Valid([]byte(v)) {
-				return fail("%s", "--json value is not valid JSON")
-			}
-			bodyMode, bodyText = "json", v
 		case "--parents":
 			parents = true
 		case "--bearer", "--basic-user", "--basic-password", "--no-auth":
@@ -182,9 +167,7 @@ func requestCreate(ctx context.Context, inv invocation, stderr io.Writer) int {
 	for _, h := range headers {
 		req.Headers = append(req.Headers, model.Entry{Key: h[0], Value: h[1], Enabled: true})
 	}
-	if bodyMode != "" {
-		req.Body = &model.Body{Type: bodyMode, Text: bodyText}
-	}
+	req.Body = body
 
 	ws, code := openWorkspace(inv, stderr)
 	if ws == nil {

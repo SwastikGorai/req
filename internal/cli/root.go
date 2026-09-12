@@ -80,9 +80,16 @@ Send flags:
   --query KEY=VALUE         query entry; repeat to append
   --method, --url           instead of positional METHOD / URL
   --body TEXT               raw body (Content-Type text/plain)
-  --json JSON               JSON body, validated before sending
-                            (--body and --json are mutually exclusive; an
-                            explicit Content-Type header wins)
+  --body-file PATH          stream exact file bytes (application/octet-stream)
+  --json JSON|@PATH         JSON text/file; substitute and validate before send
+  --urlencoded KEY=VALUE    URL-encoded form field; repeat to append
+  --form KEY=VALUE          multipart text field; leading @ stays literal
+  --form-file KEY=PATH      multipart file attachment; repeat/mix with --form
+                            Body modes are exclusive. Explicit Content-Type
+                            wins; multipart requires multipart/form-data and
+                            a matching boundary (generated when omitted).
+                            File paths on run use the workspace root;
+                            direct send paths use the current directory.
   --timeout DURATION        request deadline (default 30s)
   --no-follow               return 3xx responses instead of following them
   --insecure                skip TLS certificate verification
@@ -99,7 +106,7 @@ Send flags:
                                                  or a collection root
   req folder delete PATH [--yes]                 delete a folder and its subtree
   req request create PATH --method M --url U     save a request; also accepts
-                                                 -H, --query, --body, --json
+                                                 -H, --query, all body flags,
                                                  auth flags and --parents
   req request list PATH                          list requests as
                                                  NAME<TAB>METHOD<TAB>URL

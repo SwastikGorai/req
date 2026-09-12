@@ -47,10 +47,10 @@ func TestValidateRejections(t *testing.T) {
 			c.Items[0].Request.Body = &Body{Type: "graphql"}
 		}),
 		"raw both text and file": mutate(func(c *Collection) {
-			c.Items[0].Request.Body = &Body{Type: "raw", Text: "a", File: "b.txt"}
+			c.Items[0].Request.Body = &Body{Type: "raw", Text: &[]string{"a"}[0], File: "b.txt"}
 		}),
 		"multipart both value and file": mutate(func(c *Collection) {
-			c.Items[0].Request.Body = &Body{Type: "multipart", Multipart: []MultipartField{{Key: "f", Value: "v", File: "g.txt"}}}
+			c.Items[0].Request.Body = &Body{Type: "multipart", Multipart: []MultipartField{{Key: "f", Value: &[]string{"v"}[0], File: "g.txt"}}}
 		}),
 		"empty entry key": mutate(func(c *Collection) {
 			c.Items[0].Request.Headers = []Entry{{Key: "", Value: "v"}}

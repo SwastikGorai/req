@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -16,14 +15,6 @@ import (
 	"req/internal/store"
 )
 
-type bodyMode uint8
-
-const (
-	bodyNone bodyMode = iota
-	bodyRaw
-	bodyJSON
-)
-
 // sendOptions is the validated configuration of one direct request.
 type sendOptions struct {
 	variables variableFlags
@@ -31,8 +22,7 @@ type sendOptions struct {
 	rawURL    string
 	headers   [][2]string // ordered key/value entries; duplicates preserved
 	queries   [][2]string // ordered key/value entries; duplicates preserved
-	bodyMode  bodyMode
-	body      []byte
+	body      *model.Body
 	timeout   time.Duration
 	insecure  bool
 	noFollow  bool
@@ -86,12 +76,7 @@ func sendOverrides(opts *sendOptions) execution.Overrides {
 		Queries: opts.queries,
 		Headers: opts.headers,
 	}
-	switch opts.bodyMode {
-	case bodyRaw:
-		ov.BodyMode, ov.Body = "raw", opts.body
-	case bodyJSON:
-		ov.BodyMode, ov.Body = "json", opts.body
-	}
+	ov.Body = opts.body
 	return ov
 }
 
@@ -161,27 +146,14 @@ func parseSendArgs(args []string) (*sendOptions, error) {
 				return nil, err
 			}
 			haveURLFlag, urlFlag = true, v
-		case "--body":
-			v, err := value(&i, "--body")
+		case "--body", "--body-file", "--json", "--form", "--form-file", "--urlencoded":
+			v, err := value(&i, arg)
 			if err != nil {
 				return nil, err
 			}
-			if opts.bodyMode != bodyNone {
-				return nil, errors.New("--body conflicts with another body flag")
-			}
-			opts.bodyMode, opts.body = bodyRaw, []byte(v)
-		case "--json":
-			v, err := value(&i, "--json")
-			if err != nil {
+			if err := parseBodyFlag(&opts.body, arg, v); err != nil {
 				return nil, err
 			}
-			if opts.bodyMode != bodyNone {
-				return nil, errors.New("--json conflicts with another body flag")
-			}
-			if !strings.Contains(v, "{{") && !json.Valid([]byte(v)) {
-				return nil, errors.New("--json value is not valid JSON")
-			}
-			opts.bodyMode, opts.body = bodyJSON, []byte(v)
 		case "--timeout":
 			v, err := value(&i, "--timeout")
 			if err != nil {

@@ -2,12 +2,12 @@ package execution
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"regexp"
 	"strings"
 
+	"req/internal/httpclient"
 	"req/internal/model"
 )
 
@@ -19,12 +19,6 @@ var httpToken = regexp.MustCompile(`^[!#$%&'*+\-.^_` + "`" + `|~0-9A-Za-z]+$`)
 //
 // Method: override wins, else saved; upper-cased and validated as an HTTP
 // token. URL: override wins, else saved; must be absolute http or https.
-// Body: the override body replaces the saved one when BodyMode is set;
-// otherwise the saved body is used with Type raw→text or json→text, while
-// "none"/nil means no body and "urlencoded"/"multipart" or a file reference
-// is not supported for execution yet. A Content-Type default (json→
-// application/json, raw→text/plain) is applied only when no explicit
-// Content-Type header exists (case-insensitive) among the merged headers.
 // Variables resolve after structural overrides, in a single pass. Missing
 // variables and invalid resolved JSON fail before HTTP; explicit Authorization
 // headers take precedence over generated auth.
@@ -77,20 +71,6 @@ func Prepare(saved model.Request, ov Overrides, pol Policy) (Outgoing, error) {
 		}
 	}
 
-	body, bodyKind, err := resolveBody(saved, ov)
-	if err != nil {
-		return Outgoing{}, err
-	}
-	if body != nil {
-		resolved, err := pol.Variables.ResolveString(string(body), "body")
-		if err != nil {
-			return Outgoing{}, err
-		}
-		body = []byte(resolved)
-	}
-	if bodyKind == "json" && !json.Valid(body) {
-		return Outgoing{}, fmt.Errorf("body is not valid JSON")
-	}
 	auth := saved.Auth
 	if ov.Auth != nil {
 		auth = ov.Auth
@@ -129,11 +109,30 @@ func Prepare(saved model.Request, ov Overrides, pol Policy) (Outgoing, error) {
 		}
 	}
 
-	if body != nil && !hasHeader(headers, "Content-Type") {
-		if bodyKind == "json" {
-			headers = append(headers, [2]string{"Content-Type", "application/json"})
-		} else {
-			headers = append(headers, [2]string{"Content-Type", "text/plain"})
+	definition, err := resolveBody(saved, ov, pol)
+	if err != nil {
+		return Outgoing{}, err
+	}
+	contentType, typeIndex := "", -1
+	for i, h := range headers {
+		if strings.EqualFold(h[0], "Content-Type") {
+			if typeIndex >= 0 && definition != nil && definition.Type == "multipart" {
+				return Outgoing{}, fmt.Errorf("multipart body requires a single Content-Type header")
+			}
+			if typeIndex < 0 {
+				contentType, typeIndex = h[1], i
+			}
+		}
+	}
+	body, err := httpclient.BuildBody(definition, contentType)
+	if err != nil {
+		return Outgoing{}, err
+	}
+	if body != nil {
+		if typeIndex < 0 {
+			headers = append(headers, [2]string{"Content-Type", body.ContentType})
+		} else if definition.Type == "multipart" {
+			headers[typeIndex][1] = body.ContentType
 		}
 	}
 
@@ -152,33 +151,6 @@ func Prepare(saved model.Request, ov Overrides, pol Policy) (Outgoing, error) {
 		FollowRedirects: pol.FollowRedirects,
 		FailOnHTTPError: pol.FailOnHTTPError,
 	}, nil
-}
-
-// resolveBody picks the outgoing body bytes: the override body when a mode is
-// given, otherwise the saved body. It returns the body (nil = no body) and
-// the body kind ("raw" or "json") that drives the Content-Type default.
-func resolveBody(saved model.Request, ov Overrides) ([]byte, string, error) {
-	if ov.BodyMode != "" {
-		switch ov.BodyMode {
-		case "raw", "json":
-			return ov.Body, ov.BodyMode, nil
-		default:
-			return nil, "", fmt.Errorf("unsupported override body mode %q (want \"raw\" or \"json\")", ov.BodyMode)
-		}
-	}
-	b := saved.Body
-	switch {
-	case b == nil || b.Type == "none":
-		return nil, "", nil
-	case b.File != "":
-		return nil, "", fmt.Errorf("body from file %q is not supported for execution yet", b.File)
-	case b.Type == "raw" || b.Type == "json":
-		return []byte(b.Text), b.Type, nil
-	case b.Type == "urlencoded" || b.Type == "multipart":
-		return nil, "", fmt.Errorf("%s body is not supported for execution yet", b.Type)
-	default:
-		return nil, "", fmt.Errorf("unknown body type %q", b.Type)
-	}
 }
 
 // savedEntries flattens the enabled stored entries into ordered key/value

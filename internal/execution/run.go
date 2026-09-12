@@ -1,7 +1,6 @@
 package execution
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -14,6 +13,7 @@ import (
 // Exit codes returned by Execute, matching the CLI's contract.
 const (
 	codeSuccess   = 0
+	codeUsage     = 2
 	codeTransport = 3
 	codeHTTPFail  = 4
 	codeCanceled  = 130
@@ -33,9 +33,16 @@ func Execute(ctx context.Context, o Outgoing, stdout, stderr io.Writer) int {
 	for _, kv := range o.Headers {
 		headers.Add(kv[0], kv[1])
 	}
-	var body io.Reader
-	if o.Body != nil {
-		body = bytes.NewReader(o.Body)
+	body, err := o.Body.Open(ctx)
+	if err != nil {
+		fmt.Fprintf(stderr, "req: opening body: %v\n", err)
+		if ctx.Err() != nil {
+			return codeCanceled
+		}
+		return codeUsage
+	}
+	if body != nil {
+		defer body.Close()
 	}
 	resp, err := httpclient.Send(ctx, client, o.Method, o.URL, body, headers)
 	if err != nil {

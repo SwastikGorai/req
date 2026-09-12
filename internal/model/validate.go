@@ -157,14 +157,35 @@ func validateAuth(a *Auth, where string) error {
 }
 
 func validateBody(b *Body, where string) error {
+	if err := b.Validate(); err != nil {
+		return fmt.Errorf("%s: %w", where, err)
+	}
+	return nil
+}
+
+// Validate checks that body payloads match their tags before any file access.
+func (b *Body) Validate() error {
+	where := "body"
 	if b == nil {
 		return nil
 	}
 	if !bodyTypes[b.Type] {
 		return fmt.Errorf("%s: unknown body type %q (want none, raw, json, urlencoded or multipart)", where, b.Type)
 	}
-	if b.Text != "" && b.File != "" {
+	if b.Text != nil && b.File != "" {
 		return fmt.Errorf("%s: inline text and file reference are mutually exclusive", where)
+	}
+	if (b.Type != "raw" && b.Type != "json") && (b.Text != nil || b.File != "" || b.FileUntrusted) {
+		return fmt.Errorf("%s: inline/file payload requires raw or json", where)
+	}
+	if b.Type != "urlencoded" && b.URLEncoded != nil {
+		return fmt.Errorf("%s: urlencoded payload requires urlencoded type", where)
+	}
+	if b.Type != "multipart" && b.Multipart != nil {
+		return fmt.Errorf("%s: multipart payload requires multipart type", where)
+	}
+	if b.FileUntrusted && b.File == "" {
+		return fmt.Errorf("%s: untrusted file marker requires a file", where)
 	}
 	if err := validateEntries(b.URLEncoded, where+" urlencoded"); err != nil {
 		return err
@@ -173,8 +194,14 @@ func validateBody(b *Body, where string) error {
 		if f.Key == "" {
 			return fmt.Errorf("%s multipart[%d]: empty key", where, i)
 		}
-		if f.Value != "" && f.File != "" {
+		if f.Value != nil && f.File != "" {
 			return fmt.Errorf("%s multipart[%d]: value and file are mutually exclusive", where, i)
+		}
+		if f.FileUntrusted && f.File == "" {
+			return fmt.Errorf("%s multipart[%d]: untrusted marker requires a file", where, i)
+		}
+		if f.File == "" && f.Filename != "" {
+			return fmt.Errorf("%s multipart[%d]: filename requires a file", where, i)
 		}
 	}
 	return nil
