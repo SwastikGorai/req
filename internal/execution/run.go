@@ -16,6 +16,7 @@ const (
 	codeUsage     = 2
 	codeTransport = 3
 	codeHTTPFail  = 4
+	codeScript    = 5 // a pre/post script failed, or the body hit the script buffer limit
 	codeCanceled  = 130
 )
 
@@ -24,6 +25,29 @@ const (
 // transport error exits 3, a canceled context exits 130, and
 // FailOnHTTPError turns a status >= 400 into exit 4.
 func Execute(ctx context.Context, o Outgoing, stdout, stderr io.Writer) int {
+	resp, code := dispatch(ctx, o, stderr)
+	if resp == nil {
+		return code
+	}
+	defer resp.Body.Close()
+	if _, err := io.Copy(stdout, resp.Body); err != nil {
+		fmt.Fprintf(stderr, "req: reading body: %v\n", err)
+		if ctx.Err() != nil {
+			return codeCanceled
+		}
+		return codeTransport
+	}
+	if o.FailOnHTTPError && resp.StatusCode >= http.StatusBadRequest {
+		return codeHTTPFail
+	}
+	return codeSuccess
+}
+
+// dispatch is the shared send prologue: it builds the client, opens the
+// request body and sends, then prints the status line. A nil response means
+// the exchange never completed; the returned code is the exit code (2 for an
+// unopenable body, 3 for a transport failure, 130 for cancellation).
+func dispatch(ctx context.Context, o Outgoing, stderr io.Writer) (*httpclient.Response, int) {
 	client := httpclient.Client(httpclient.Options{
 		Timeout:         o.Timeout,
 		InsecureTLS:     o.InsecureTLS,
@@ -37,9 +61,9 @@ func Execute(ctx context.Context, o Outgoing, stdout, stderr io.Writer) int {
 	if err != nil {
 		fmt.Fprintf(stderr, "req: opening body: %v\n", err)
 		if ctx.Err() != nil {
-			return codeCanceled
+			return nil, codeCanceled
 		}
-		return codeUsage
+		return nil, codeUsage
 	}
 	if body != nil {
 		defer body.Close()
@@ -48,24 +72,12 @@ func Execute(ctx context.Context, o Outgoing, stdout, stderr io.Writer) int {
 	if err != nil {
 		if ctx.Err() != nil {
 			fmt.Fprintln(stderr, "req: canceled")
-			return codeCanceled
+			return nil, codeCanceled
 		}
 		fmt.Fprintf(stderr, "req: %v\n", err)
-		return codeTransport
+		return nil, codeTransport
 	}
-	defer resp.Body.Close()
-
 	fmt.Fprintf(stderr, "%s %s -> %d %s in %s\n",
 		o.Method, o.URL, resp.StatusCode, http.StatusText(resp.StatusCode), resp.Duration.Truncate(time.Microsecond))
-	if _, err := io.Copy(stdout, resp.Body); err != nil {
-		fmt.Fprintf(stderr, "req: reading body: %v\n", err)
-		if ctx.Err() != nil {
-			return codeCanceled
-		}
-		return codeTransport
-	}
-	if o.FailOnHTTPError && resp.StatusCode >= http.StatusBadRequest {
-		return codeHTTPFail
-	}
-	return codeSuccess
+	return resp, codeSuccess
 }

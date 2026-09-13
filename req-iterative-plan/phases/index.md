@@ -1,6 +1,6 @@
 # Phase Manifest
 
-Keep status synchronized with PLAN.md and individual checkpoints. Phases 0–7 are implemented; current verification and corrections are recorded in [verification.md](../verification.md).
+Keep status synchronized with PLAN.md and individual checkpoints. Phases 0–8 are implemented; current verification and corrections are recorded in [verification.md](../verification.md).
 
 | Phase | Name | Status | Depends on | File |
 |---|---|---|---|---|
@@ -12,7 +12,7 @@ Keep status synchronized with PLAN.md and individual checkpoints. Phases 0–7 a
 | 5 | Editing and organizing requests | [x] Complete | Phase 4 | [phase-5-editing.md](phase-5-editing.md) |
 | 6 | Environments and inherited authentication | [x] Complete | Phase 5 | [phase-6-variables-auth.md](phase-6-variables-auth.md) |
 | 7 | File uploads and body formats | [x] Complete | Phase 6 | [phase-7-body-files.md](phase-7-body-files.md) |
-| 8 | Script storage and inherited execution | [ ] Not started | Phase 7 | [phase-8-script-lifecycle.md](phase-8-script-lifecycle.md) |
+| 8 | Script storage and inherited execution | [x] Complete | Phase 7 | [phase-8-script-lifecycle.md](phase-8-script-lifecycle.md) |
 | 9 | Variables, request mutation and response APIs | [ ] Not started | Phase 8 | [phase-9-script-bindings.md](phase-9-script-bindings.md) |
 | 10 | Tests and supported assertions | [ ] Not started | Phase 9 | [phase-10-assertions.md](phase-10-assertions.md) |
 | 11 | Auxiliary requests with callbacks | [ ] Not started | Phase 10 | [phase-11-async-callbacks.md](phase-11-async-callbacks.md) |

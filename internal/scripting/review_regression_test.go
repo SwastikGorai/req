@@ -17,7 +17,7 @@ func (f delayedTransport) RoundTrip(r *http.Request) (*http.Response, error) { r
 func TestLateCompletionPreservesCurrentWork(t *testing.T) {
 	oldStarted, newStarted := make(chan struct{}), make(chan struct{})
 	oldRelease, newRelease := make(chan struct{}), make(chan struct{})
-	e := NewEngine()
+	e := newSpikeEngine()
 	e.httpClient = &http.Client{Transport: delayedTransport(func(r *http.Request) (*http.Response, error) {
 		if r.URL.Path == "/old" {
 			close(oldStarted)

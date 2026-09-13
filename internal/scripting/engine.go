@@ -1,6 +1,8 @@
-// Package scripting embeds the JavaScript runtime. Phase 1 is a feasibility
-// spike: it proves ownership, interruption and asynchronous host work, and
-// claims no Postman API compatibility yet.
+// Package scripting embeds the JavaScript runtime. It began as a feasibility
+// spike proving ownership, interruption and asynchronous host work; the
+// production surface (pm.execution, console) now lives here too, while the
+// full Postman API (pm.response, pm.variables, assertions, pm.sendRequest)
+// arrives with later phases.
 package scripting
 
 import "context"
@@ -11,10 +13,12 @@ type Source struct {
 	Code string
 }
 
-// Report is what a completed run hands back. It grows only when production
-// bindings are implemented.
+// Report is what a completed run hands back.
 type Report struct {
 	Logs []string
+	// Skipped reports that the script called pm.execution.skipRequest(),
+	// even when it caught the resulting sentinel.
+	Skipped bool
 }
 
 // Engine runs scripts. Run blocks until the script and all of its tracked

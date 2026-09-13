@@ -64,3 +64,16 @@ Fixed revision checks across delete confirmation, stale script callback accounti
 - `rtk proxy gofmt -l internal cmd` and `rtk git diff --check`: exit 0, no output.
 
 These review corrections are staged separately from Phase 7 commit 93bc40c; Phase 8 remains next.
+
+## Phase 8 — 2026-09-13
+
+Started from clean tree at f31145e. Refined the Phase 8 LLD against ResolvePath, model.Scripts, the Phase 1 owner loop and Prepare/Execute, then delegated implementation to a subagent-implementer (authorized by the user for this session) and integrated: the review pass fixed CRLF line endings the subagent introduced in nine modified files (gofmt -w) and closed a parser gap where a separator line inside brand-new script content would have been stored as source text that breaks the next edit (now rejected with "unexpected script separator"; regression case added to TestScriptEditHappyPath).
+
+- `gofmt -l internal cmd`: no output (after the normalization).
+- `go vet ./...` and `go build ./...`: exit 0.
+- `go test -count=1 ./...`: exit 0, 126 test functions pass across 7 packages (105 at Phase 7 HEAD + 21 new; earlier "107" counts included subtests).
+- `go test -race -count=1 ./...`: exit 0.
+- `git diff --check`: clean.
+- Phase 8 coverage: inherited ordering across collection/outer/inner folder/request in both phases with logs asserted around the status line, pre-error-no-send, skip (incl. caught-sentinel and post-phase rejection), post-error-still-prints-body, transport failure without post scripts, HTTP 404 with post scripts, --fail and script-error precedence (5 over 4), per-entry deadline with a mechanical hang guard, --no-scripts, 10 MiB body limit without partial output, disabled entries filtered, and the full script-edit command surface (create, round-trip with separator preservation, damaged marker recovery, unchanged, folder/collection targets, run integration).
+
+All work is uncommitted in the working tree; no remote action. The Phase 8 checkpoint records deviations: constant body limit, uncapped console until Phase 9, and no --no-scripts/--script-timeout on send (direct sends have no scripts).

@@ -46,12 +46,12 @@ func runRun(ctx context.Context, inv invocation, stdout, stderr io.Writer) int {
 	parsed.pol.BodyBase = ws.Root()
 	saved := *rp.Item.Request
 	saved.Auth = rp.Auth
-	outgoing, err := execution.Prepare(saved, parsed.ov, parsed.pol)
+	pre, post, err := execution.InheritedScripts(rp.Collection, rp.Segments)
 	if err != nil {
 		fmt.Fprintf(stderr, "req: %v\n", err)
 		return exitUsage
 	}
-	return execution.Execute(ctx, outgoing, stdout, stderr)
+	return execution.RunLifecycle(ctx, saved, parsed.ov, parsed.pol, parsed.sp, pre, post, stdout, stderr)
 }
 
 // runArgs is the parsed command line of one `req run` invocation. Overrides
@@ -62,6 +62,7 @@ type runArgs struct {
 	path      string
 	ov        execution.Overrides
 	pol       execution.Policy
+	sp        execution.ScriptPolicy
 }
 
 // parseRunArgs parses and validates run arguments. Unknown flags, missing
@@ -141,6 +142,18 @@ func parseRunArgs(args []string) (runArgs, error) {
 			parsed.pol.Timeout = d
 		case "--no-follow":
 			noFollow = true
+		case "--no-scripts":
+			parsed.sp.Disabled = true
+		case "--script-timeout":
+			v, err := value(&i, "--script-timeout")
+			if err != nil {
+				return runArgs{}, err
+			}
+			d, perr := time.ParseDuration(v)
+			if perr != nil || d <= 0 {
+				return runArgs{}, fmt.Errorf("invalid --script-timeout %q (want a positive duration such as 5s)", v)
+			}
+			parsed.sp.Timeout = d
 		case "--insecure":
 			parsed.pol.InsecureTLS = true
 		case "--fail":

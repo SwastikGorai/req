@@ -19,6 +19,10 @@ import (
 // the configurable 10 MiB policy arrives with the production bindings.
 const maxSpikeBody = 1 << 20
 
+// errSkipRequest is the sentinel thrown by pm.execution.skipRequest(). A
+// script may catch it, but the skip flag the binding set always wins.
+var errSkipRequest = errors.New("skipRequest")
+
 // engine runs one goja.Runtime on a single owner goroutine. Every JS
 // interaction happens on that goroutine; the only cross-goroutine runtime
 // call is Runtime.Interrupt from the deadline watchdog, which Goja documents
@@ -36,16 +40,18 @@ type engine struct {
 	workers    sync.WaitGroup // in-flight host goroutines, for Close
 
 	// Fields below are owned by the owner goroutine only.
-	logs    []string
-	runCtx  context.Context // active run's context, captured by host bindings
-	running bool
-	runGen  uint64 // increments per Run; identifies late completions
-	runErr  error  // first runtime error from a callback, fails the run
-
-	vars *varStore
+	logs          []string
+	runCtx        context.Context // active run's context, captured by host bindings
+	running       bool
+	runGen        uint64 // increments per Run; identifies late completions
+	runErr        error  // first runtime error from a callback, fails the run
+	skipRequested bool   // set by pm.execution.skipRequest, survives a caught sentinel
 }
 
-// NewEngine starts an engine and its owner goroutine. Close must be called.
+// NewEngine starts an engine with the production surface — pm.execution and
+// console — and its owner goroutine. Close must be called. VM global state is
+// shared between the runs of one engine but never across engines, so one
+// execution gets exactly one engine.
 func NewEngine() *engine {
 	e := &engine{
 		rt:         goja.New(),
@@ -53,7 +59,6 @@ func NewEngine() *engine {
 		quit:       make(chan struct{}),
 		ownerDone:  make(chan struct{}),
 		httpClient: httpclient.DefaultClient(),
-		vars:       newVarStore(),
 	}
 	e.installBindings()
 	go e.loop()
@@ -125,6 +130,7 @@ func (e *engine) Run(ctx context.Context, src Source) (Report, error) {
 func (e *engine) runOnOwner(ctx context.Context, src Source) runResult {
 	e.rt.ClearInterrupt()
 	e.logs, e.runErr, e.running = nil, nil, true
+	e.skipRequested = false
 	e.runCtx, e.runGen = ctx, e.runGen+1
 	e.pending.Store(0)
 
@@ -132,13 +138,20 @@ func (e *engine) runOnOwner(ctx context.Context, src Source) runResult {
 	if err == nil {
 		_, err = e.rt.RunProgram(prg)
 	}
-	if err == nil {
+	// A skip terminates the script's pending work, so drain is not run.
+	// There is no asynchronous production API yet; this is bookkeeping only.
+	if err == nil && !e.skipRequested {
 		err = e.drain(ctx)
 	}
 	if err == nil {
 		err = e.runErr
 	}
 	e.running, e.runCtx = false, nil
+	if e.skipRequested {
+		// The skip flag wins over a later runtime error: a script may have
+		// caught the skipRequest sentinel after calling it.
+		return runResult{Report{Logs: e.logs, Skipped: true}, nil}
+	}
 	if err != nil {
 		return runResult{Report{}, err}
 	}
@@ -213,70 +226,45 @@ func (e *engine) fetch(ctx context.Context, url string) httpResult {
 	return httpResult{status: resp.StatusCode, body: string(body)}
 }
 
-// installBindings registers the spike surface: vars (Go-backed store), log,
-// httpGet (callback) and httpGetAsync (Promise). None of this is the
-// production pm API.
+// installBindings registers the production surface: pm with
+// pm.execution.skipRequest, and console with its log methods. Later phases
+// add pm.response, pm.variables, assertions and pm.sendRequest.
 func (e *engine) installBindings() {
 	rt := e.rt
 
-	varsObj := rt.NewObject()
-	mustSet := func(name string, value interface{}) {
-		if err := varsObj.Set(name, value); err != nil {
-			panic(err)
-		}
+	exec := rt.NewObject()
+	if err := exec.Set("skipRequest", func(goja.FunctionCall) goja.Value {
+		e.skipRequested = true
+		panic(rt.NewGoError(errSkipRequest))
+	}); err != nil {
+		panic(err)
 	}
-	mustSet("get", func(key string) interface{} { return e.vars.get(key) })
-	mustSet("set", func(key string, value interface{}) { e.vars.set(key, value) })
-	if err := rt.Set("vars", varsObj); err != nil {
+	pm := rt.NewObject()
+	if err := pm.Set("execution", exec); err != nil {
+		panic(err)
+	}
+	if err := rt.Set("pm", pm); err != nil {
 		panic(err)
 	}
 
-	if err := rt.Set("log", func(call goja.FunctionCall) goja.Value {
+	logLine := func(call goja.FunctionCall) goja.Value {
 		parts := make([]string, len(call.Arguments))
 		for i, arg := range call.Arguments {
 			parts[i] = arg.String()
 		}
 		e.logs = append(e.logs, strings.Join(parts, " "))
 		return goja.Undefined()
-	}); err != nil {
-		panic(err)
 	}
-
-	if err := rt.Set("httpGet", func(call goja.FunctionCall) goja.Value {
-		url := call.Argument(0).String()
-		cb, ok := goja.AssertFunction(call.Argument(1))
-		if !ok {
-			panic(rt.NewTypeError("httpGet(url, callback) requires a string URL and a callback function"))
+	console := rt.NewObject()
+	for _, name := range []string{"log", "info", "warn", "error"} {
+		if err := console.Set(name, logLine); err != nil {
+			panic(err)
 		}
-		e.startHTTP(url, func(res httpResult) {
-			_, err := cb(goja.Undefined(), res.errValue(rt), res.value(rt))
-			if err != nil && e.runErr == nil {
-				e.runErr = fmt.Errorf("httpGet callback: %w", err)
-			}
-		})
-		return goja.Undefined()
-	}); err != nil {
+	}
+	if err := rt.Set("console", console); err != nil {
 		panic(err)
 	}
-
-	if err := rt.Set("httpGetAsync", func(call goja.FunctionCall) goja.Value {
-		url := call.Argument(0).String()
-		promise, resolve, reject := rt.NewPromise()
-		e.startHTTP(url, func(res httpResult) {
-			if res.err != nil {
-				if err := reject(res.err.Error()); err != nil {
-					e.setRunErr(err)
-				}
-				return
-			}
-			if err := resolve(res.value(rt)); err != nil {
-				e.setRunErr(err)
-			}
-		})
-		return rt.ToValue(promise)
-	}); err != nil {
-		panic(err)
-	}
+	// ponytail: console log caps (1000 entries / 1 MiB) arrive with Phase 9.
 }
 
 func (e *engine) setRunErr(err error) {
@@ -297,26 +285,4 @@ func (r httpResult) value(rt *goja.Runtime) goja.Value {
 	_ = obj.Set("status", r.status)
 	_ = obj.Set("body", r.body)
 	return obj
-}
-
-// varStore is the spike's JS-to-Go variable adapter.
-type varStore struct {
-	mu sync.Mutex
-	m  map[string]interface{}
-}
-
-func newVarStore() *varStore {
-	return &varStore{m: make(map[string]interface{})}
-}
-
-func (s *varStore) get(key string) interface{} {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.m[key]
-}
-
-func (s *varStore) set(key string, value interface{}) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.m[key] = value
 }

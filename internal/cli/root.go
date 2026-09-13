@@ -15,6 +15,7 @@ const (
 	exitUsage     = 2
 	exitTransport = 3
 	exitHTTPFail  = 4
+	exitScript    = 5 // a pre/post script failed, or the body hit the script buffer limit
 	exitStorage   = 7
 	exitCanceled  = 130
 )
@@ -56,6 +57,8 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return runTree(ctx, invocation{args: inv.args[1:], workspace: inv.workspace}, stdout, stderr)
 	case "run":
 		return runRun(ctx, invocation{args: inv.args[1:], workspace: inv.workspace}, stdout, stderr)
+	case "script":
+		return runScript(ctx, invocation{args: inv.args[1:], workspace: inv.workspace}, stdout, stderr)
 	case "help", "-h", "--help":
 		return printUsage(stdout, exitSuccess)
 	case "--version":
@@ -117,6 +120,12 @@ Send flags:
   req request delete PATH [--yes]                delete a saved request
   req request edit PATH                          edit a saved request in
                                                  $EDITOR or $VISUAL
+  req script edit PATH (--pre|--post)            edit a collection, folder or
+                                                 request script phase in
+                                                 $EDITOR or $VISUAL; stored
+                                                 entries are separated by
+                                                 // ---- req script ID ----
+                                                 marker lines
   req tree PATH                                  print a collection or folder
                                                  subtree
   req run PATH [flags]                           execute a saved request;
@@ -136,7 +145,11 @@ Send/run variable and auth flags:
                             Auth modes conflict; explicit Authorization wins.
   {{env:NAME}}              read one process environment variable explicitly
 
-Scripting commands arrive with later phases.
+Run-only script flags:
+  --no-scripts              skip pre-request and post-response scripts; the
+                            body streams exactly like a direct send
+  --script-timeout DURATION deadline per script entry, including asynchronous
+                            work (default 5s)
 `)
 	return code
 }

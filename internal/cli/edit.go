@@ -69,7 +69,31 @@ func editJSON(ws *store.Workspace, recoveryID, label string, value, target any, 
 		return exitStorage
 	}
 	original = append(original, '\n')
-	tmp, err := os.CreateTemp("", "req-edit-*.json")
+	// Strict decode: unknown fields and trailing data make the edit invalid.
+	return launchEdit(ws, recoveryID, label, "req-edit-*.json", original,
+		func(edited []byte) error {
+			dec := json.NewDecoder(bytes.NewReader(edited))
+			dec.DisallowUnknownFields()
+			if err := dec.Decode(target); err != nil {
+				return err
+			}
+			if dec.Decode(new(any)) != io.EOF {
+				return errors.New("trailing data after the JSON document")
+			}
+			return nil
+		},
+		save, stderr)
+}
+
+// launchEdit shares the temporary-file, editor and recovery lifecycle across
+// edit commands: it writes original to a temp file matching tmpPattern, opens
+// it in $EDITOR/$VISUAL and, when the content changed, validates the edited
+// bytes and calls save. An invalid edit is preserved in a recovery file (or
+// the temp file when recovery fails) and exits 2; a conflicting save is
+// preserved in recovery and exits 7. validate runs after the unchanged
+// check, so an untouched file is reported as unchanged without validation.
+func launchEdit(ws *store.Workspace, recoveryID, label, tmpPattern string, original []byte, validate func(edited []byte) error, save func() error, stderr io.Writer) int {
+	tmp, err := os.CreateTemp("", tmpPattern)
 	if err != nil {
 		fmt.Fprintf(stderr, "req: %v\n", err)
 		return exitStorage
@@ -129,28 +153,20 @@ func editJSON(ws *store.Workspace, recoveryID, label string, value, target any, 
 		return exitSuccess
 	}
 
-	// Strict decode: unknown fields and trailing data make the edit invalid.
-	dec := json.NewDecoder(bytes.NewReader(edited))
-	dec.DisallowUnknownFields()
-	decErr := dec.Decode(target)
-	if decErr == nil && dec.Decode(new(any)) != io.EOF {
-		decErr = errors.New("trailing data after the JSON document")
-	}
-	if decErr != nil {
+	if err := validate(edited); err != nil {
 		kind, _, _ := strings.Cut(label, " ")
 		if recovery, rerr := ws.SaveRecovery(recoveryID, edited); rerr == nil && recovery != "" {
 			os.Remove(tmpPath)
-			fmt.Fprintf(stderr, "req: edited %s is invalid: %v — your edit is preserved at %s\n", kind, decErr, recovery)
+			fmt.Fprintf(stderr, "req: edited %s is invalid: %v — your edit is preserved at %s\n", kind, err, recovery)
 		} else {
-			fmt.Fprintf(stderr, "req: edited %s is invalid: %v — your edit is preserved at %s\n", kind, decErr, tmpPath)
+			fmt.Fprintf(stderr, "req: edited %s is invalid: %v — your edit is preserved at %s\n", kind, err, tmpPath)
 		}
 		return exitUsage
 	}
 
-	// UpdateRequest persists only if the collection is still at the
-	// revision this edit started from, checking under the workspace lock:
-	// a competing save keeps the disk and the stale edit is preserved in
-	// recovery.
+	// save persists only if the collection is still at the revision this
+	// edit started from, checking under the workspace lock: a competing
+	// save keeps the disk and the stale edit is preserved in recovery.
 	if err := save(); err != nil {
 		var conflict *store.ConflictError
 		if errors.As(err, &conflict) {

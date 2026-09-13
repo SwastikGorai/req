@@ -15,7 +15,7 @@ import (
 )
 
 func TestRuntimeVariableRoundTrip(t *testing.T) {
-	e := NewEngine()
+	e := newSpikeEngine()
 	defer e.Close()
 
 	rep, err := e.Run(context.Background(), Source{
@@ -41,7 +41,7 @@ func TestRuntimeVariableRoundTrip(t *testing.T) {
 }
 
 func TestRuntimeSourceLocationError(t *testing.T) {
-	e := NewEngine()
+	e := newSpikeEngine()
 	defer e.Close()
 
 	_, err := e.Run(context.Background(), Source{
@@ -61,7 +61,7 @@ func TestRuntimeSourceLocationError(t *testing.T) {
 }
 
 func TestRuntimeInterrupt(t *testing.T) {
-	e := NewEngine()
+	e := newSpikeEngine()
 	defer e.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
@@ -86,7 +86,7 @@ func TestRuntimeInterrupt(t *testing.T) {
 }
 
 func TestRuntimeCallbackAndPromise(t *testing.T) {
-	e := NewEngine()
+	e := newSpikeEngine()
 	defer e.Close()
 
 	mux := http.NewServeMux()
@@ -130,7 +130,7 @@ func TestRuntimeCallbackAndPromise(t *testing.T) {
 }
 
 func TestRuntimeCancellation(t *testing.T) {
-	e := NewEngine()
+	e := newSpikeEngine()
 	defer e.Close()
 
 	handlerStarted := make(chan struct{})

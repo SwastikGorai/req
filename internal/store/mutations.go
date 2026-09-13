@@ -320,6 +320,44 @@ func (w *Workspace) UpdateRequest(ctx context.Context, path string, req model.Re
 	return nil
 }
 
+// UpdateScripts replaces the scripts of the node at path (collection root,
+// folder or request) with s, persisting ONLY if the collection file still has
+// the expected revision (checked under the workspace lock in SaveCollection,
+// mirroring UpdateRequest). A single-segment path targets the collection.
+// When both of s's arrays end up empty, nil is stored to keep files clean.
+func (w *Workspace) UpdateScripts(ctx context.Context, path string, s *model.Scripts, expected Revision) error {
+	segments, err := SplitPath(path)
+	if err != nil {
+		return err
+	}
+	coll, _, err := w.collectionByName(ctx, segments[0])
+	if err != nil {
+		return err
+	}
+	if s != nil && len(s.PreRequest) == 0 && len(s.PostResponse) == 0 {
+		s = nil
+	}
+	if len(segments) == 1 {
+		coll.Scripts = s
+	} else {
+		parent, idx, err := locateItem(&coll, segments[1:])
+		if err != nil {
+			return err
+		}
+		it := &(*parent)[idx]
+		switch it.Type {
+		case "folder":
+			it.Folder.Scripts = s
+		default: // "request": the only other type validateItems allows
+			it.Request.Scripts = s
+		}
+	}
+	if err := w.SaveCollection(ctx, coll, expected); err != nil {
+		return fmt.Errorf("saving collection %q: %w", coll.Name, err)
+	}
+	return nil
+}
+
 // locateItem walks the item segments below the collection name against coll
 // and returns the children slice holding the item named by the last segment
 // plus its index in it. A missing name returns an error wrapping
