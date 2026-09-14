@@ -1,8 +1,8 @@
 // Package scripting embeds the JavaScript runtime. It began as a feasibility
 // spike proving ownership, interruption and asynchronous host work; the
-// production surface (pm.execution, console) now lives here too, while the
-// full Postman API (pm.response, pm.variables, assertions, pm.sendRequest)
-// arrives with later phases.
+// production pm surface (variables, request, response, execution) and console
+// live in bindings.go, while assertions (pm.test/pm.expect) and
+// pm.sendRequest arrive with later phases.
 package scripting
 
 import "context"

@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"sync"
 	"sync/atomic"
 
 	"github.com/dop251/goja"
 
 	"req/internal/httpclient"
+	"req/internal/variables"
 )
 
 // maxSpikeBody bounds what a script-bound request may read in this spike;
@@ -41,24 +41,41 @@ type engine struct {
 
 	// Fields below are owned by the owner goroutine only.
 	logs          []string
+	logBytes      int
+	logsTruncated bool            // a console cap was hit; the notice is appended once
 	runCtx        context.Context // active run's context, captured by host bindings
 	running       bool
 	runGen        uint64 // increments per Run; identifies late completions
 	runErr        error  // first runtime error from a callback, fails the run
 	skipRequested bool   // set by pm.execution.skipRequest, survives a caught sentinel
+
+	// The pm surface's phase state. Set*Request methods are called by the
+	// execution between runs, when no script can be on the stack.
+	scope    *variables.Scope
+	srcName  string // current script's Name, set per Run
+	phase    string // phasePre, phasePost or empty
+	pre      *ExecRequest
+	post     *ExecRequest
+	resp     *ResponseData
+	pmTarget *goja.Object // the unguarded pm object backing the pm proxy
 }
 
-// NewEngine starts an engine with the production surface — pm.execution and
-// console — and its owner goroutine. Close must be called. VM global state is
-// shared between the runs of one engine but never across engines, so one
-// execution gets exactly one engine.
-func NewEngine() *engine {
+// NewEngine starts an engine with the production pm surface and console,
+// bound to scope, plus its owner goroutine. A nil scope becomes an empty
+// one. Close must be called. VM global state is shared between the runs of
+// one engine but never across engines, so one execution gets exactly one
+// engine.
+func NewEngine(scope *variables.Scope) *engine {
+	if scope == nil {
+		scope = &variables.Scope{}
+	}
 	e := &engine{
 		rt:         goja.New(),
 		jobs:       make(chan func()),
 		quit:       make(chan struct{}),
 		ownerDone:  make(chan struct{}),
 		httpClient: httpclient.DefaultClient(),
+		scope:      scope,
 	}
 	e.installBindings()
 	go e.loop()
@@ -129,8 +146,10 @@ func (e *engine) Run(ctx context.Context, src Source) (Report, error) {
 // runOnOwner must run on the owner goroutine.
 func (e *engine) runOnOwner(ctx context.Context, src Source) runResult {
 	e.rt.ClearInterrupt()
-	e.logs, e.runErr, e.running = nil, nil, true
+	e.logs, e.logBytes, e.logsTruncated = nil, 0, false
+	e.runErr, e.running = nil, true
 	e.skipRequested = false
+	e.srcName = src.Name
 	e.runCtx, e.runGen = ctx, e.runGen+1
 	e.pending.Store(0)
 
@@ -224,47 +243,6 @@ func (e *engine) fetch(ctx context.Context, url string) httpResult {
 		return httpResult{status: resp.StatusCode, err: fmt.Errorf("reading body: %w", err)}
 	}
 	return httpResult{status: resp.StatusCode, body: string(body)}
-}
-
-// installBindings registers the production surface: pm with
-// pm.execution.skipRequest, and console with its log methods. Later phases
-// add pm.response, pm.variables, assertions and pm.sendRequest.
-func (e *engine) installBindings() {
-	rt := e.rt
-
-	exec := rt.NewObject()
-	if err := exec.Set("skipRequest", func(goja.FunctionCall) goja.Value {
-		e.skipRequested = true
-		panic(rt.NewGoError(errSkipRequest))
-	}); err != nil {
-		panic(err)
-	}
-	pm := rt.NewObject()
-	if err := pm.Set("execution", exec); err != nil {
-		panic(err)
-	}
-	if err := rt.Set("pm", pm); err != nil {
-		panic(err)
-	}
-
-	logLine := func(call goja.FunctionCall) goja.Value {
-		parts := make([]string, len(call.Arguments))
-		for i, arg := range call.Arguments {
-			parts[i] = arg.String()
-		}
-		e.logs = append(e.logs, strings.Join(parts, " "))
-		return goja.Undefined()
-	}
-	console := rt.NewObject()
-	for _, name := range []string{"log", "info", "warn", "error"} {
-		if err := console.Set(name, logLine); err != nil {
-			panic(err)
-		}
-	}
-	if err := rt.Set("console", console); err != nil {
-		panic(err)
-	}
-	// ponytail: console log caps (1000 entries / 1 MiB) arrive with Phase 9.
 }
 
 func (e *engine) setRunErr(err error) {

@@ -7,7 +7,7 @@ import (
 )
 
 func TestSkipRequestSignal(t *testing.T) {
-	e := NewEngine()
+	e := NewEngine(nil)
 	defer e.Close()
 
 	rep, err := e.Run(context.Background(), Source{
@@ -26,7 +26,7 @@ func TestSkipRequestSignal(t *testing.T) {
 }
 
 func TestSkipCaughtStillSkips(t *testing.T) {
-	e := NewEngine()
+	e := NewEngine(nil)
 	defer e.Close()
 
 	rep, err := e.Run(context.Background(), Source{
@@ -45,7 +45,7 @@ func TestSkipCaughtStillSkips(t *testing.T) {
 }
 
 func TestSpikeGlobalsAbsent(t *testing.T) {
-	e := NewEngine()
+	e := NewEngine(nil)
 	defer e.Close()
 
 	rep, err := e.Run(context.Background(), Source{

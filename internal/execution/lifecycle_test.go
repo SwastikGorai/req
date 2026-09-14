@@ -3,6 +3,7 @@ package execution
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -459,5 +460,110 @@ func TestDisabledEntriesDoNotRun(t *testing.T) {
 	}
 	if n := hits.Load(); n != 1 {
 		t.Errorf("server hits = %d, want 1", n)
+	}
+}
+
+func TestPreHeaderMutation(t *testing.T) {
+	var hits atomic.Int32
+	type recorded struct {
+		header http.Header
+		body   []byte
+	}
+	got := make(chan recorded, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits.Add(1)
+		body, _ := io.ReadAll(r.Body)
+		got <- recorded{header: r.Header.Clone(), body: body}
+		_, _ = io.WriteString(w, "ok")
+	}))
+	defer srv.Close()
+
+	body := `{"k":"{{v}}"}`
+	saved := model.Request{
+		Method: "POST", URL: srv.URL,
+		Headers: []model.Entry{{Key: "X-Base", Value: "{{token}}", Enabled: true}},
+		Body:    &model.Body{Type: "json", Text: &body},
+	}
+	before, err := json.Marshal(saved)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pre := []model.Script{scriptEntry("pre",
+		`pm.variables.set("token", "s3cret"); pm.variables.set("v", "1"); pm.request.headers.add("X-Generated", "by-script");`, true)}
+
+	pol := Policy{Variables: &variables.Scope{}, FollowRedirects: true}
+	code, stdout, stderr := runLifecyclePol(t, context.Background(), saved, pol, ScriptPolicy{}, pre, nil)
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0 (stderr: %s)", code, stderr)
+	}
+	if stdout != "ok" {
+		t.Errorf("stdout = %q, want the server body", stdout)
+	}
+	if n := hits.Load(); n != 1 {
+		t.Fatalf("server hits = %d, want 1", n)
+	}
+
+	rec := <-got
+	if rec.header.Get("X-Base") != "s3cret" {
+		t.Errorf("server saw X-Base %q, want the pm.variables.set value resolved into the saved header", rec.header.Get("X-Base"))
+	}
+	if rec.header.Get("X-Generated") != "by-script" {
+		t.Errorf("server saw X-Generated %q, want the pre-script generated header", rec.header.Get("X-Generated"))
+	}
+	if string(rec.body) != `{"k":"1"}` {
+		t.Errorf("server saw body %q, want the pm.variables value resolved into the saved body", rec.body)
+	}
+
+	after, _ := json.Marshal(saved)
+	if !bytes.Equal(before, after) {
+		t.Errorf("RunLifecycle mutated the saved request definition:\nbefore %s\nafter  %s", before, after)
+	}
+}
+
+func TestPostTokenExtraction(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{"token":"t-1"}`)
+	}))
+	defer srv.Close()
+
+	scope := &variables.Scope{Local: map[string]any{}, Environment: map[string]any{}}
+	post := []model.Script{scriptEntry("post", `pm.environment.set("token", pm.response.json().token);`, true)}
+
+	pol := Policy{Variables: scope, FollowRedirects: true}
+	code, stdout, stderr := runLifecyclePol(t, context.Background(), model.Request{Method: "GET", URL: srv.URL}, pol, ScriptPolicy{}, nil, post)
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0 (stderr: %s)", code, stderr)
+	}
+	if got := scope.Environment["token"]; got != "t-1" {
+		t.Errorf("scope.Environment[token] = %v, want t-1 written by the post script", got)
+	}
+	if stdout != `{"token":"t-1"}` {
+		t.Errorf("stdout = %q, want the received body", stdout)
+	}
+}
+
+func TestResponseUnavailableBeforeSend(t *testing.T) {
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits.Add(1)
+		_, _ = io.WriteString(w, "unreachable")
+	}))
+	defer srv.Close()
+
+	pre := []model.Script{scriptEntry("pre", `pm.response.code;`, true)}
+
+	code, stdout, stderr := runLifecycle(t, context.Background(), model.Request{Method: "GET", URL: srv.URL}, ScriptPolicy{}, pre, nil)
+	if code != 5 {
+		t.Fatalf("exit = %d, want 5 (stderr: %s)", code, stderr)
+	}
+	if stdout != "" {
+		t.Errorf("stdout = %q, want empty (nothing may be sent)", stdout)
+	}
+	if !strings.Contains(stderr, "pm.response is not available in pre-request scripts") {
+		t.Errorf("stderr = %q, want the unavailability diagnostic", stderr)
+	}
+	if n := hits.Load(); n != 0 {
+		t.Errorf("server hits = %d, want 0", n)
 	}
 }

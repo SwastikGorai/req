@@ -37,3 +37,20 @@ func TestSinglePassVariables(t *testing.T) {
 		}
 	}
 }
+
+func TestReplaceIn(t *testing.T) {
+	t.Setenv("REQ_TEST_VALUE", "process")
+	s := &Scope{CLI: map[string]any{"v": "cli"}, Collection: map[string]any{"n": 2}}
+	for _, step := range []struct{ in, want string }{
+		{"{{v}}", "cli"},
+		{"{{n}}", "2"},
+		{"{{env:REQ_TEST_VALUE}}", "process"},
+		{"a {{missing}} b", "a {{missing}} b"}, // unresolvable placeholders stay
+		{"{{v}} and {{v}}", "cli and cli"},
+		{"", ""},
+	} {
+		if got := s.ReplaceIn(step.in); got != step.want {
+			t.Errorf("ReplaceIn(%q) = %q, want %q", step.in, got, step.want)
+		}
+	}
+}

@@ -94,14 +94,14 @@ const (
 	phaseSkipped                     // a script called pm.execution.skipRequest
 )
 
-// RunLifecycle runs pre scripts (unless disabled/absent), prepares and sends
+// RunLifecycle runs pre scripts (unless disabled/absent), resolves and sends
 // the request, then runs post scripts, choosing exit codes per the contract:
 // cancellation 130 beats storage-free script failure 5, which beats
-// FailOnHTTPError 4 and transport failure 3. Pre scripts run before Prepare,
-// so a pre-script failure stops everything before variables resolve or
-// anything is sent. With no scripts to run (or --no-scripts) the body
-// streams exactly like Execute; otherwise it is buffered up to
-// MaxScriptBodyBytes so post scripts can be run first.
+// FailOnHTTPError 4 and transport failure 3. Pre scripts run against the
+// execution copy before ResolveRequest, so a pre-script failure stops
+// everything before variables resolve or anything is sent. With no scripts
+// to run (or --no-scripts) the body streams exactly like Execute; otherwise
+// it is buffered up to MaxScriptBodyBytes so post scripts can be run first.
 func RunLifecycle(ctx context.Context, saved model.Request, ov Overrides, pol Policy, sp ScriptPolicy, pre, post []model.Script, stdout, stderr io.Writer) int {
 	if sp.Disabled {
 		pre, post = nil, nil
@@ -117,8 +117,12 @@ func RunLifecycle(ctx context.Context, saved model.Request, ov Overrides, pol Po
 
 	// One engine per execution: VM global state is shared between the
 	// scripts of this run but never leaks across invocations.
-	eng := scripting.NewEngine()
+	eng := scripting.NewEngine(pol.Variables)
 	defer eng.Close()
+
+	// Pre scripts mutate this copy; the saved definition stays untouched.
+	merged := MergeOverrides(saved, ov)
+	eng.SetPreRequest(merged)
 
 	timeout := sp.Timeout
 	if timeout <= 0 {
@@ -136,7 +140,7 @@ func RunLifecycle(ctx context.Context, saved model.Request, ov Overrides, pol Po
 		return codeSuccess
 	}
 
-	outgoing, err := Prepare(saved, ov, pol)
+	outgoing, err := ResolveRequest(merged, pol)
 	if err != nil {
 		fmt.Fprintf(stderr, "req: %v\n", err)
 		return codeUsage
@@ -170,6 +174,24 @@ func RunLifecycle(ctx context.Context, saved model.Request, ov Overrides, pol Po
 		fmt.Fprintf(stderr, "req: writing body: %v\n", err)
 		return codeTransport
 	}
+
+	// The read-only post view: the resolved outgoing request, with the body
+	// exposed only when it is inline raw/JSON (sharing the resolved text).
+	view := &scripting.ExecRequest{
+		Method:  outgoing.Method,
+		URL:     outgoing.URL,
+		Headers: outgoing.Headers,
+	}
+	if b := merged.Body; b != nil && b.File == "" && (b.Type == "raw" || b.Type == "json") {
+		view.Body = b
+	}
+	eng.SetPostRequest(view, scripting.ResponseData{
+		Code:    resp.StatusCode,
+		Status:  http.StatusText(resp.StatusCode),
+		TimeMS:  resp.Duration.Milliseconds(),
+		Headers: resp.Headers,
+		Body:    buf,
+	})
 
 	res, skipID = runPhase(ctx, eng, post, timeout, stderr)
 	switch res {

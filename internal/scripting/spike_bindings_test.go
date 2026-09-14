@@ -20,7 +20,7 @@ type spikeEngine struct {
 // (Go-backed store), log, httpGet (callback) and httpGetAsync (Promise).
 // None of this is the production pm API.
 func newSpikeEngine() *spikeEngine {
-	e := NewEngine()
+	e := NewEngine(nil)
 	vars := newVarStore()
 	installSpikeBindings(e, vars)
 	return &spikeEngine{engine: e, vars: vars}

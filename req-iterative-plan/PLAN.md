@@ -1,6 +1,6 @@
 # req — Iterative Implementation Plan
 
-> Living document. Start here. Phases 0–8 are implemented and verified. See [verification.md](verification.md) for the 2026-09-12 re-audit, prerequisite corrections and continuation evidence. Next: Phase 9.
+> Living document. Start here. Phases 0–9 are implemented and verified. See [verification.md](verification.md) for the 2026-09-12 re-audit, prerequisite corrections and continuation evidence. Next: Phase 10.
 
 ## Goal & Context
 
@@ -27,7 +27,7 @@
 | 6 | Environments and inherited authentication | [x] Complete | Phase 5 | [phase-6-variables-auth.md](phases/phase-6-variables-auth.md) |
 | 7 | File uploads and body formats | [x] Complete | Phase 6 | [phase-7-body-files.md](phases/phase-7-body-files.md) |
 | 8 | Script storage and inherited execution | [x] Complete | Phase 7 | [phase-8-script-lifecycle.md](phases/phase-8-script-lifecycle.md) |
-| 9 | Variables, request mutation and response APIs | [ ] Not started | Phase 8 | [phase-9-script-bindings.md](phases/phase-9-script-bindings.md) |
+| 9 | Variables, request mutation and response APIs | [x] Complete | Phase 8 | [phase-9-script-bindings.md](phases/phase-9-script-bindings.md) |
 | 10 | Tests and supported assertions | [ ] Not started | Phase 9 | [phase-10-assertions.md](phases/phase-10-assertions.md) |
 | 11 | Auxiliary requests with callbacks | [ ] Not started | Phase 10 | [phase-11-async-callbacks.md](phases/phase-11-async-callbacks.md) |
 | 12 | Promises, deadlines and cleanup | [ ] Not started | Phase 11 | [phase-12-async-promises.md](phases/phase-12-async-promises.md) |

@@ -7,21 +7,21 @@ import (
 	"path/filepath"
 
 	"req/internal/model"
+	"req/internal/scripting"
 )
 
-// resolveBody works on an execution copy, preserving saved file references.
-func resolveBody(saved model.Request, ov Overrides, pol Policy) (*model.Body, error) {
-	source := saved.Body
-	if ov.Body != nil {
-		source = ov.Body
-	}
+// resolveBody validates and resolves m.Body in place: m is the execution
+// copy, so resolved file paths and text replace the values there and the
+// saved definition stays untouched. It returns nil only for a missing body.
+func resolveBody(m *scripting.ExecRequest, pol Policy) (*model.Body, error) {
+	source := m.Body
 	if err := source.Validate(); err != nil {
 		return nil, err
 	}
 	if source == nil {
 		return nil, nil
 	}
-	b := *source
+	b := source
 	resolve := pol.Variables.ResolveString
 	file := func(path string, untrusted bool, location string) (string, error) {
 		path, err := resolve(path, location)
@@ -46,7 +46,7 @@ func resolveBody(saved model.Request, ov Overrides, pol Policy) (*model.Body, er
 			}
 			b.File, b.FileUntrusted = path, false
 			if b.Type == "raw" {
-				return &b, nil
+				return b, nil
 			}
 			info, err := os.Stat(path)
 			if err != nil {
@@ -72,8 +72,9 @@ func resolveBody(saved model.Request, ov Overrides, pol Policy) (*model.Body, er
 		}
 		b.Text = &text
 	case "urlencoded":
+		entries := source.URLEncoded // capture before b clears the field in place
 		b.URLEncoded = nil
-		for i, entry := range source.URLEncoded {
+		for i, entry := range entries {
 			if !entry.Enabled {
 				continue
 			}
@@ -89,8 +90,9 @@ func resolveBody(saved model.Request, ov Overrides, pol Policy) (*model.Body, er
 			b.URLEncoded = append(b.URLEncoded, entry)
 		}
 	case "multipart":
+		fields := source.Multipart // capture before b clears the field in place
 		b.Multipart = nil
-		for i, field := range source.Multipart {
+		for i, field := range fields {
 			if !field.Enabled {
 				continue
 			}
@@ -122,7 +124,7 @@ func resolveBody(saved model.Request, ov Overrides, pol Policy) (*model.Body, er
 			b.Multipart = append(b.Multipart, field)
 		}
 	}
-	return &b, b.Validate()
+	return b, b.Validate()
 }
 
 func bodyFilePath(path, base string, untrusted bool) (string, error) {

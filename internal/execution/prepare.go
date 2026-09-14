@@ -9,6 +9,7 @@ import (
 
 	"req/internal/httpclient"
 	"req/internal/model"
+	"req/internal/scripting"
 )
 
 // httpToken matches the RFC 9110 token character set, used for HTTP methods.
@@ -23,11 +24,54 @@ var httpToken = regexp.MustCompile(`^[!#$%&'*+\-.^_` + "`" + `|~0-9A-Za-z]+$`)
 // variables and invalid resolved JSON fail before HTTP; explicit Authorization
 // headers take precedence over generated auth.
 func Prepare(saved model.Request, ov Overrides, pol Policy) (Outgoing, error) {
+	return ResolveRequest(MergeOverrides(saved, ov), pol)
+}
+
+// MergeOverrides builds the mutable execution copy that pre scripts may
+// modify before ResolveRequest runs. Only enabled saved entries are used;
+// override entries are appended after the saved ones. Method and URL keep
+// their unresolved values. The chosen body definition is deep-copied so
+// script mutations and in-place resolution never touch the saved request.
+func MergeOverrides(saved model.Request, ov Overrides) *scripting.ExecRequest {
 	method := ov.Method
 	if method == "" {
 		method = saved.Method
 	}
-	method, err := pol.Variables.ResolveString(method, "method")
+	rawURL := ov.URL
+	if rawURL == "" {
+		rawURL = saved.URL
+	}
+	auth := saved.Auth
+	if ov.Auth != nil {
+		auth = ov.Auth
+	}
+	body := saved.Body
+	if ov.Body != nil {
+		body = ov.Body
+	}
+	var copy *model.Body
+	if body != nil {
+		b := *body
+		copy = &b
+	}
+	return &scripting.ExecRequest{
+		Method:  method,
+		URL:     rawURL,
+		Headers: append(savedEntries(saved.Headers), ov.Headers...),
+		Queries: append(savedEntries(saved.Query), ov.Queries...),
+		Auth:    auth,
+		Body:    copy,
+	}
+}
+
+// ResolveRequest validates, resolves variables and builds the outgoing HTTP
+// request from the execution copy m. Header, query and body values resolve in
+// place, so pm.request mutations from pre scripts and {{references}} feed the
+// same copy; after it returns, an inline raw/JSON m.Body.Text holds the
+// resolved text. Explicit Authorization headers take precedence over
+// generated auth.
+func ResolveRequest(m *scripting.ExecRequest, pol Policy) (Outgoing, error) {
+	method, err := pol.Variables.ResolveString(m.Method, "method")
 	if err != nil {
 		return Outgoing{}, err
 	}
@@ -36,11 +80,7 @@ func Prepare(saved model.Request, ov Overrides, pol Policy) (Outgoing, error) {
 		return Outgoing{}, fmt.Errorf("invalid HTTP method %q", method)
 	}
 
-	rawURL := ov.URL
-	if rawURL == "" {
-		rawURL = saved.URL
-	}
-	rawURL, err = pol.Variables.ResolveString(rawURL, "URL")
+	rawURL, err := pol.Variables.ResolveString(m.URL, "URL")
 	if err != nil {
 		return Outgoing{}, err
 	}
@@ -48,8 +88,7 @@ func Prepare(saved model.Request, ov Overrides, pol Policy) (Outgoing, error) {
 		return Outgoing{}, fmt.Errorf("URL must be absolute http or https, got %q", rawURL)
 	}
 
-	headers := append(savedEntries(saved.Headers), ov.Headers...)
-	queries := append(savedEntries(saved.Query), ov.Queries...)
+	headers, queries := m.Headers, m.Queries
 	for _, group := range []struct {
 		location string
 		entries  [][2]string
@@ -71,10 +110,10 @@ func Prepare(saved model.Request, ov Overrides, pol Policy) (Outgoing, error) {
 		}
 	}
 
-	auth := saved.Auth
-	if ov.Auth != nil {
-		auth = ov.Auth
-	}
+	// Copy before appending generated headers so m keeps its exact slice.
+	headers = append([][2]string(nil), headers...)
+
+	auth := m.Auth
 	if auth != nil && !hasHeader(headers, "Authorization") {
 		var value string
 		switch auth.Type {
@@ -109,7 +148,7 @@ func Prepare(saved model.Request, ov Overrides, pol Policy) (Outgoing, error) {
 		}
 	}
 
-	definition, err := resolveBody(saved, ov, pol)
+	definition, err := resolveBody(m, pol)
 	if err != nil {
 		return Outgoing{}, err
 	}

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"req/internal/model"
 )
 
 // recordedRequest is what a test server hands back to the test goroutine.
@@ -218,5 +220,49 @@ func TestRunFailFlag(t *testing.T) {
 	}
 	if !strings.Contains(stderr, "500") {
 		t.Errorf("with --fail: stderr = %q, want the status line", stderr)
+	}
+}
+
+func TestRunScriptBindings(t *testing.T) {
+	t.Chdir(t.TempDir())
+
+	mustRun(t, exitSuccess, "init")
+	mustRun(t, exitSuccess, "collection", "create", "API")
+
+	rec := make(chan recordedRequest, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		rec <- recordedRequest{method: r.Method, path: r.URL.Path, query: r.URL.RawQuery, header: r.Header.Clone(), body: body}
+		_, _ = io.WriteString(w, `{"ok":true}`)
+	}))
+	defer srv.Close()
+
+	mustRun(t, exitSuccess, "request", "create", "API/Session",
+		"--method", "GET", "--url", srv.URL+"/session/{{who}}", "--header", "X-Who: {{who}}")
+	setScripts(t, "API/Session", &model.Scripts{
+		PreRequest:   []model.Script{{ID: "pre", Source: `pm.variables.set("who", "script");`, Enabled: true}},
+		PostResponse: []model.Script{{ID: "post", Source: `console.log("token-check " + JSON.stringify(pm.response.json()));`, Enabled: true}},
+	})
+	before := collectionFileBytes(t)
+
+	stdout, stderr := mustRun(t, exitSuccess, "run", "API/Session")
+	if stdout != `{"ok":true}` {
+		t.Errorf("stdout = %q, want the server body", stdout)
+	}
+	if !strings.Contains(stderr, `post: token-check {"ok":true}`) {
+		t.Errorf("stderr = %q, want the post script's pm.response.json() log", stderr)
+	}
+
+	got := <-rec
+	if got.path != "/session/script" {
+		t.Errorf("server saw path %q, want the pre-script variable resolved into the URL", got.path)
+	}
+	if got.header.Get("X-Who") != "script" {
+		t.Errorf("server saw X-Who %q, want the resolved value", got.header.Get("X-Who"))
+	}
+
+	// Variable mutation and response access change nothing on disk.
+	if after := collectionFileBytes(t); !bytes.Equal(before, after) {
+		t.Error("run rewrote the collection file")
 	}
 }
