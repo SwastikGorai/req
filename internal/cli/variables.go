@@ -94,7 +94,7 @@ func (f variableFlags) scope(ctx context.Context, ws *store.Workspace, collectio
 		if err != nil {
 			return nil, err
 		}
-		s.Environment = e.Variables
+		s.Environment = e.ActiveVariables()
 	}
 	return s, nil
 }

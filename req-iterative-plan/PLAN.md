@@ -1,6 +1,6 @@
 # req — Iterative Implementation Plan
 
-> Living document. Start here. Phases 0–12 are implemented and verified. See [verification.md](verification.md) for the 2026-09-12 re-audit, prerequisite corrections and continuation evidence. Next: Phase 13.
+> Living document. Start here. Phases 0–13 are implemented and verified. See [verification.md](verification.md) for the 2026-09-12 re-audit, prerequisite corrections and continuation evidence. Next: Phase 14.
 
 ## Goal & Context
 
@@ -31,7 +31,7 @@
 | 10 | Tests and supported assertions | [x] Complete | Phase 9 | [phase-10-assertions.md](phases/phase-10-assertions.md) |
 | 11 | Auxiliary requests with callbacks | [x] Complete | Phase 10 | [phase-11-async-callbacks.md](phases/phase-11-async-callbacks.md) |
 | 12 | Promises, deadlines and cleanup | [x] Complete | Phase 11 | [phase-12-async-promises.md](phases/phase-12-async-promises.md) |
-| 13 | Postman collection and environment import | [ ] Not started | Phase 12 | [phase-13-postman-data.md](phases/phase-13-postman-data.md) |
+| 13 | Postman collection and environment import | [x] Complete | Phase 12 | [phase-13-postman-data.md](phases/phase-13-postman-data.md) |
 | 14 | Imported Postman scripts | [ ] Not started | Phase 13 | [phase-14-postman-scripts.md](phases/phase-14-postman-scripts.md) |
 | 15 | cURL command import | [ ] Not started | Phase 14 | [phase-15-curl-import.md](phases/phase-15-curl-import.md) |
 | 16 | cURL export | [ ] Not started | Phase 15 | [phase-16-curl-export.md](phases/phase-16-curl-export.md) |

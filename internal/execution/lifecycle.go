@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"req/internal/model"
@@ -104,6 +105,10 @@ const (
 // like Execute; otherwise it is buffered up to MaxScriptBodyBytes so post
 // scripts can be run first.
 func RunLifecycle(ctx context.Context, saved model.Request, ov Overrides, pol Policy, sp ScriptPolicy, pre, post []model.Script, stdout, stderr io.Writer) int {
+	if saved.Import.Blocked() {
+		fmt.Fprintf(stderr, "req: imported request is blocked: %s\n", strings.Join(saved.Import.Unsupported, "; "))
+		return codeUsage
+	}
 	if sp.Disabled {
 		pre, post = nil, nil
 	}

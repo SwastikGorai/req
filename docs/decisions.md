@@ -2,6 +2,14 @@
 
 Consequential implementation choices, newest phase first. Routine reversible choices stay in code; cross-phase consequences live here and in handoff.md.
 
+## Phase 13 — Postman data import
+
+- **Import parsing is side-effect free and persistence reuses the store's atomic saves.** `internal/importer` decodes and normalizes the complete v2.1 tree before `SaveCollection`/`SaveEnvironment`; strict warnings therefore cannot leave partial files.
+- **Native import metadata carries source recovery and execution blockers.** Full collection/environment JSON and unsupported request/folder context stay attached to imported data. Unsupported auth/body is represented as `none` only as a safe placeholder and the request is blocked before execution, so it can never silently become unauthenticated.
+- **Disabled values are represented separately from active maps.** `disabled_variables` keeps imported values inspectable while `ActiveVariables` excludes them from interpolation; item/entry/script enabled state uses the existing native flags.
+- **URL raw query wins duplicate representation.** Structured query entries already present in a Postman URL `raw` value are not appended a second time; distinct structured entries remain ordered native query entries. Path variables in structured URLs use supplied defaults, while absent defaults remain unresolved placeholders.
+- **Collision policy is explicit.** Default collection/environment imports choose deterministic suffixes and emit warnings; an explicit `--name` collision fails before persistence. Strict mode treats every normalization or unsupported-feature warning as a no-write error.
+
 ## Phase 12 — Promise settlement and cleanup
 
 - **Promise form reuses the Phase 11 auxiliary scheduler.** `pm.sendRequest(request)` creates a Goja Promise and stores its owner-only resolve/reject functions on the tracked task; the existing two-argument callback form remains unchanged. Host results never carry JS values across goroutines.

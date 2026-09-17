@@ -7,9 +7,11 @@ import (
 )
 
 type Environment struct {
-	SchemaVersion int            `json:"schema_version"`
-	Name          string         `json:"name"`
-	Variables     map[string]any `json:"variables"`
+	SchemaVersion     int             `json:"schema_version"`
+	Name              string          `json:"name"`
+	Variables         map[string]any  `json:"variables"`
+	DisabledVariables map[string]bool `json:"disabled_variables,omitempty"`
+	Import            *ImportMetadata `json:"import,omitempty"`
 }
 
 func ValidEnvironmentName(name string) bool {
@@ -41,4 +43,19 @@ func (e Environment) Validate() error {
 		return fmt.Errorf("invalid environment name %q", e.Name)
 	}
 	return ValidateVariables(e.Variables)
+}
+
+// ActiveVariables returns a copy containing only enabled environment values.
+// Disabled imported values remain available for inspection and recovery.
+func (e Environment) ActiveVariables() map[string]any {
+	if e.Variables == nil {
+		return nil
+	}
+	out := make(map[string]any, len(e.Variables))
+	for key, value := range e.Variables {
+		if !e.DisabledVariables[key] {
+			out[key] = value
+		}
+	}
+	return out
 }

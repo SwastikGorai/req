@@ -4,6 +4,8 @@
 // data silently.
 package model
 
+import "encoding/json"
+
 // SchemaVersion is the current native collection schema. Files declaring a
 // different version fail validation and are never rewritten.
 const SchemaVersion = 1
@@ -11,43 +13,63 @@ const SchemaVersion = 1
 // Collection is one persisted collection file: its complete item tree plus
 // collection-level variables, auth and scripts.
 type Collection struct {
-	SchemaVersion int                    `json:"schema_version"`
-	ID            string                 `json:"id"`
-	Name          string                 `json:"name"`
-	Variables     map[string]interface{} `json:"variables,omitempty"`
-	Auth          *Auth                  `json:"auth,omitempty"`
-	Scripts       *Scripts               `json:"scripts,omitempty"`
-	Items         []Item                 `json:"items"`
+	SchemaVersion     int                    `json:"schema_version"`
+	ID                string                 `json:"id"`
+	Name              string                 `json:"name"`
+	Variables         map[string]interface{} `json:"variables,omitempty"`
+	DisabledVariables map[string]bool        `json:"disabled_variables,omitempty"`
+	Auth              *Auth                  `json:"auth,omitempty"`
+	Scripts           *Scripts               `json:"scripts,omitempty"`
+	Import            *ImportMetadata        `json:"import,omitempty"`
+	Items             []Item                 `json:"items"`
 }
 
 // Item is one node in the collection tree: a folder or a request, tagged by
 // Type, carrying a stable ID and a name unique among its siblings.
 type Item struct {
-	Type    string   `json:"type"` // "folder" or "request"
-	ID      string   `json:"id"`
-	Name    string   `json:"name"`
-	Folder  *Folder  `json:"folder,omitempty"`
-	Request *Request `json:"request,omitempty"`
+	Type     string   `json:"type"` // "folder" or "request"
+	ID       string   `json:"id"`
+	Name     string   `json:"name"`
+	Disabled bool     `json:"disabled,omitempty"`
+	Folder   *Folder  `json:"folder,omitempty"`
+	Request  *Request `json:"request,omitempty"`
 }
 
 // Folder holds nested items plus optional inherited auth and scripts.
 type Folder struct {
-	Children []Item   `json:"children"`
-	Auth     *Auth    `json:"auth,omitempty"`
-	Scripts  *Scripts `json:"scripts,omitempty"`
+	Children []Item          `json:"children"`
+	Auth     *Auth           `json:"auth,omitempty"`
+	Scripts  *Scripts        `json:"scripts,omitempty"`
+	Import   *ImportMetadata `json:"import,omitempty"`
 }
 
 // Request is one saved request definition. Values may contain {{variable}}
 // references; they are stored verbatim and resolved at execution time.
 type Request struct {
-	Method  string   `json:"method"`
-	URL     string   `json:"url"`
-	Query   []Entry  `json:"query,omitempty"`
-	Headers []Entry  `json:"headers,omitempty"`
-	Auth    *Auth    `json:"auth,omitempty"`
-	Body    *Body    `json:"body,omitempty"`
-	Scripts *Scripts `json:"scripts,omitempty"`
+	Method  string          `json:"method"`
+	URL     string          `json:"url"`
+	Query   []Entry         `json:"query,omitempty"`
+	Headers []Entry         `json:"headers,omitempty"`
+	Auth    *Auth           `json:"auth,omitempty"`
+	Body    *Body           `json:"body,omitempty"`
+	Scripts *Scripts        `json:"scripts,omitempty"`
+	Import  *ImportMetadata `json:"import,omitempty"`
 }
+
+// ImportMetadata keeps source context and any intentionally lossy conversion
+// attached to imported data. Original is retained as JSON so recovery does not
+// depend on the source file remaining in place.
+type ImportMetadata struct {
+	Source      string          `json:"source,omitempty"`
+	Path        string          `json:"path,omitempty"`
+	OriginalID  string          `json:"original_id,omitempty"`
+	Unsupported []string        `json:"unsupported,omitempty"`
+	Warnings    []string        `json:"warnings,omitempty"`
+	Original    json.RawMessage `json:"original,omitempty"`
+}
+
+// Blocked reports whether an importer marked this value as unsafe to execute.
+func (m *ImportMetadata) Blocked() bool { return m != nil && len(m.Unsupported) > 0 }
 
 // Entry is one ordered {key, value, enabled} header or query entry;
 // duplicate keys are preserved.
@@ -109,4 +131,20 @@ type MultipartField struct {
 	Enabled       bool    `json:"enabled"`
 	ContentType   string  `json:"content_type,omitempty"`
 	Filename      string  `json:"filename,omitempty"`
+}
+
+// ActiveVariables returns a copy containing only enabled collection values.
+// Disabled imported values remain in Variables and DisabledVariables for
+// round-tripping but are not eligible for interpolation.
+func (c Collection) ActiveVariables() map[string]any {
+	if c.Variables == nil {
+		return nil
+	}
+	out := make(map[string]any, len(c.Variables))
+	for key, value := range c.Variables {
+		if !c.DisabledVariables[key] {
+			out[key] = value
+		}
+	}
+	return out
 }

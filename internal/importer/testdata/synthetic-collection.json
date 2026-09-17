@@ -1,0 +1,76 @@
+{
+  "info": {
+    "_postman_id": "pm-col-001",
+    "name": "Imported API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {"key": "base", "value": "https://api.example.test", "enabled": true},
+    {"key": "old_token", "value": "disabled", "enabled": false}
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]
+  },
+  "event": [
+    {"listen": "prerequest", "script": {"id": "scr-pre", "exec": ["pm.variables.set('ready', 'yes');"]}},
+    {"listen": "test", "script": {"id": "scr-post", "exec": ["pm.test('ok', function () {});"]}}
+  ],
+  "item": [
+    {
+      "id": "fld-users",
+      "name": "Users",
+      "item": [
+        {
+          "id": "req-list",
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "X-Enabled", "value": "yes"},
+              {"key": "X-Disabled", "value": "no", "disabled": true}
+            ],
+            "url": {
+              "raw": "{{base}}/users?active=true",
+              "protocol": "https",
+              "host": ["api", "example", "test"],
+              "path": ["users"],
+              "query": [
+                {"key": "active", "value": "true"},
+                {"key": "page", "value": "1", "disabled": true}
+              ]
+            },
+            "auth": {"type": "basic", "basic": [
+              {"key": "username", "value": "{{user}}"},
+              {"key": "password", "value": "{{password}}"}
+            ]}
+          },
+          "event": [
+            {"listen": "prerequest", "script": {"id": "scr-request", "exec": "console.log('request');"}}
+          ]
+        },
+        {
+          "name": "Create",
+          "disabled": true,
+          "request": {
+            "method": "POST",
+            "url": "{{base}}/users",
+            "body": {"mode": "raw", "raw": "{\"name\":\"Ada\"}", "options": {"raw": {"language": "json"}}}
+          }
+        }
+      ]
+    },
+    {
+      "id": "req-upload",
+      "name": "Upload",
+      "request": {
+        "method": "POST",
+        "url": {"protocol": "https", "host": ["api", "example", "test"], "path": ["upload"]},
+        "body": {"mode": "formdata", "formdata": [
+          {"key": "description", "value": "text"},
+          {"key": "attachment", "type": "file", "src": "fixtures/file.txt", "disabled": true}
+        ]}
+      }
+    }
+  ]
+}

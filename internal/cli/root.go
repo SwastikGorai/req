@@ -60,6 +60,8 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return runRun(ctx, invocation{args: inv.args[1:], workspace: inv.workspace}, stdout, stderr)
 	case "script":
 		return runScript(ctx, invocation{args: inv.args[1:], workspace: inv.workspace}, stdout, stderr)
+	case "import":
+		return runImport(ctx, invocation{args: inv.args[1:], workspace: inv.workspace}, stdout, stderr)
 	case "help", "-h", "--help":
 		return printUsage(stdout, exitSuccess)
 	case "--version":
@@ -131,6 +133,11 @@ Send flags:
                                                  subtree
   req run PATH [flags]                           execute a saved request;
                                                  send flags apply as overrides
+
+  req import postman FILE [--name NAME] [--strict]
+                                                 import a Postman v2.1 collection
+  req import postman-env FILE [--name NAME] [--strict]
+                                                 import a Postman environment
 
   req --version
   req help

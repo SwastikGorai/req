@@ -1,0 +1,9 @@
+{
+  "id": "env-001",
+  "name": "Local",
+  "values": [
+    {"key": "base", "value": "https://localhost:8443", "enabled": true},
+    {"key": "secret", "value": "hidden", "enabled": false}
+  ],
+  "_postman_variable_scope": "environment"
+}

@@ -37,7 +37,11 @@ func runRun(ctx context.Context, inv invocation, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "req: %q is a folder, not a request\n", parsed.path)
 		return exitUsage
 	}
-	scope, err := parsed.variables.scope(ctx, ws, rp.Collection.Variables)
+	if rp.Item.Request.Import.Blocked() {
+		fmt.Fprintf(stderr, "req: imported request %q is blocked: %s\n", parsed.path, strings.Join(rp.Item.Request.Import.Unsupported, "; "))
+		return exitUsage
+	}
+	scope, err := parsed.variables.scope(ctx, ws, rp.Collection.ActiveVariables())
 	if err != nil {
 		fmt.Fprintf(stderr, "req: %v\n", err)
 		return usageOrStorage(err)
