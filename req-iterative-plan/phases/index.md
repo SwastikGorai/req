@@ -1,6 +1,6 @@
 # Phase Manifest
 
-Keep status synchronized with PLAN.md and individual checkpoints. Phases 0–10 are implemented; current verification and corrections are recorded in [verification.md](../verification.md).
+Keep status synchronized with PLAN.md and individual checkpoints. Phases 0–11 are implemented; current verification and corrections are recorded in [verification.md](../verification.md).
 
 | Phase | Name | Status | Depends on | File |
 |---|---|---|---|---|
@@ -15,7 +15,7 @@ Keep status synchronized with PLAN.md and individual checkpoints. Phases 0–10 
 | 8 | Script storage and inherited execution | [x] Complete | Phase 7 | [phase-8-script-lifecycle.md](phase-8-script-lifecycle.md) |
 | 9 | Variables, request mutation and response APIs | [x] Complete | Phase 8 | [phase-9-script-bindings.md](phases/phase-9-script-bindings.md) |
 | 10 | Tests and supported assertions | [x] Complete | Phase 9 | [phase-10-assertions.md](phase-10-assertions.md) |
-| 11 | Auxiliary requests with callbacks | [ ] Not started | Phase 10 | [phase-11-async-callbacks.md](phase-11-async-callbacks.md) |
+| 11 | Auxiliary requests with callbacks | [x] Complete | Phase 10 | [phase-11-async-callbacks.md](phase-11-async-callbacks.md) |
 | 12 | Promises, deadlines and cleanup | [ ] Not started | Phase 11 | [phase-12-async-promises.md](phase-12-async-promises.md) |
 | 13 | Postman collection and environment import | [ ] Not started | Phase 12 | [phase-13-postman-data.md](phase-13-postman-data.md) |
 | 14 | Imported Postman scripts | [ ] Not started | Phase 13 | [phase-14-postman-scripts.md](phase-14-postman-scripts.md) |

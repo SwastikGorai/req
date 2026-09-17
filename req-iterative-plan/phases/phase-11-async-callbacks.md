@@ -6,22 +6,23 @@
 
 ## Do this now
 
-1. [ ] Extend the production owner loop established in Phase 8 with tracked auxiliary HTTP work.
-2. [ ] Implement pm.sendRequest string URL and supported request-object conversion.
-3. [ ] Schedule context-aware HTTP and deliver (err, response) only on owner goroutine.
-4. [ ] Wait for callback work before advancing scripts and enforce request/concurrency limits.
-5. [ ] Test nested callbacks, callback errors and authentication before main send.
+1. [x] Extend the production owner loop established in Phase 8 with tracked auxiliary HTTP work.
+2. [x] Implement pm.sendRequest string URL and supported request-object conversion.
+3. [x] Schedule context-aware HTTP and deliver (err, response) only on owner goroutine.
+4. [x] Wait for callback work before advancing scripts and enforce request/concurrency limits.
+5. [x] Test nested callbacks, callback errors and authentication before main send.
 
 Stuck on any step? See **Design details** below.
 
 ## Checkpoint — Phase 11
 
-- **Status:** `[ ] Not started`
-- **What was actually done:** Not implemented. Fill in changed files, decisions and deviations when work occurs.
-- **Verification:** `go test ./internal/scripting` plus the named test cases below; add affected CLI integration tests. Record the actual test names if refined. 
-- **Evidence:** Not run. Record command, exit status and observed assertions here.
+- **Status:** `[x] Done`
+- **What was actually done:** Added callback-only `pm.sendRequest` to the production owner loop. String URLs and request objects with raw/components URLs, ordered/map headers, raw/urlencoded/formdata text bodies, and basic/bearer auth are normalized at scheduling time; saved request headers/auth are not inherited. Auxiliary work is tracked with a FIFO queue (20 requests per execution, 4 active workers), 10 MiB response buffering, context cancellation, generation-checked late completion disposal, and owner-goroutine callback delivery. Callback responses reuse the `pm.response` adapter. Promise return/settlement remains Phase 12.
+- **Changed files:** `internal/scripting/async.go`, `internal/scripting/async_test.go`, `internal/scripting/loop.go`, `internal/scripting/bindings.go`, `internal/scripting/engine.go`, `internal/scripting/bindings_test.go`, `internal/execution/lifecycle_test.go`, `docs/decisions.md`.
+- **Verification:** `rtk go test -count=1 ./internal/scripting ./internal/execution` and `rtk go test -race -count=1 ./internal/scripting ./internal/execution`; named coverage includes `TestCallbackAuthBeforeMain`, `TestNestedCallbackWait`, `TestCallbackThrows`, `TestRequestObjectConversion`, and `TestAuxiliaryConcurrencyAndLimit`.
+- **Evidence:** Focused tests passed (103 tests across scripting and execution). `rtk go test -count=1 -timeout=120s ./...` and `rtk go test -race -count=1 -timeout=180s ./...` both passed (209 tests across 8 packages); `rtk go vet ./...` and `rtk git diff --check` passed.
 - **Next step:** Phase 12, task 1: [phase-12-async-promises.md](phase-12-async-promises.md)
-- **Resume cursor if interrupted:** Task 1; replace with exact task/test/file before handing off.
+- **Resume cursor if interrupted:** Phase 11 complete; begin Phase 12 Promise return/settlement tracking. Do not treat callback-only completion as Promise support.
 
 ---
 

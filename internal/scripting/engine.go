@@ -1,8 +1,8 @@
 // Package scripting embeds the JavaScript runtime. It began as a feasibility
 // spike proving ownership, interruption and asynchronous host work; the
 // production pm surface (variables, request, response, execution) and console
-// live in bindings.go, the assertions (pm.test/pm.expect) in assertions.go,
-// while pm.sendRequest arrives with a later phase.
+// live in bindings.go, assertions in assertions.go, and callback HTTP work in
+// async.go.
 package scripting
 
 import "context"

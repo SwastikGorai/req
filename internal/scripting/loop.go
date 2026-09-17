@@ -45,10 +45,14 @@ type engine struct {
 	logsTruncated bool            // a console cap was hit; the notice is appended once
 	tests         []TestResult    // pm.test outcomes, reset at the start of each run
 	runCtx        context.Context // active run's context, captured by host bindings
+	runCancel     context.CancelFunc
 	running       bool
 	runGen        uint64 // increments per Run; identifies late completions
 	runErr        error  // first runtime error from a callback, fails the run
 	skipRequested bool   // set by pm.execution.skipRequest, survives a caught sentinel
+	auxTotal      int
+	auxActive     int
+	auxQueue      []auxTask
 
 	// The pm surface's phase state. Set*Request methods are called by the
 	// execution between runs, when no script can be on the stack.
@@ -75,7 +79,7 @@ func NewEngine(scope *variables.Scope) *engine {
 		jobs:       make(chan func()),
 		quit:       make(chan struct{}),
 		ownerDone:  make(chan struct{}),
-		httpClient: httpclient.DefaultClient(),
+		httpClient: httpclient.Client(httpclient.Options{FollowRedirects: true}),
 		scope:      scope,
 	}
 	e.installBindings()
@@ -132,7 +136,10 @@ func (e *engine) Run(ctx context.Context, src Source) (Report, error) {
 	defer func() { close(watchStop); <-watchExited }()
 
 	resCh := make(chan runResult, 1)
-	if !e.enqueue(func() { resCh <- e.runOnOwner(runCtx, src) }) {
+	if !e.enqueue(func() {
+		e.runCancel = cancel
+		resCh <- e.runOnOwner(runCtx, src)
+	}) {
 		return Report{}, errors.New("scripting: engine is closed")
 	}
 	res := <-resCh
@@ -154,20 +161,21 @@ func (e *engine) runOnOwner(ctx context.Context, src Source) runResult {
 	e.srcName = src.Name
 	e.runCtx, e.runGen = ctx, e.runGen+1
 	e.pending.Store(0)
+	e.auxTotal, e.auxActive, e.auxQueue = 0, 0, nil
 
 	prg, err := goja.Compile(src.Name, src.Code, false)
 	if err == nil {
 		_, err = e.rt.RunProgram(prg)
 	}
 	// A skip terminates the script's pending work, so drain is not run.
-	// There is no asynchronous production API yet; this is bookkeeping only.
 	if err == nil && !e.skipRequested {
 		err = e.drain(ctx)
 	}
 	if err == nil {
 		err = e.runErr
 	}
-	e.running, e.runCtx = false, nil
+	e.running, e.runCtx, e.runCancel = false, nil, nil
+	e.auxQueue, e.auxActive = nil, 0
 	if e.skipRequested {
 		// The skip flag wins over a later runtime error: a script may have
 		// caught the skipRequest sentinel after calling it.
@@ -186,6 +194,9 @@ func (e *engine) runOnOwner(ctx context.Context, src Source) runResult {
 // raised pending again before the check.
 func (e *engine) drain(ctx context.Context) error {
 	for {
+		if e.skipRequested {
+			return nil
+		}
 		if err := e.runErr; err != nil {
 			return err
 		}
@@ -209,9 +220,10 @@ func (e *engine) Close() error {
 }
 
 type httpResult struct {
-	status int
-	body   string
-	err    error
+	status   int
+	body     string
+	response *ResponseData
+	err      error
 }
 
 // startHTTP launches one host request whose completion closure runs on the

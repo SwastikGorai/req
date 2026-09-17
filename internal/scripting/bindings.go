@@ -153,8 +153,7 @@ func (e *engine) unsupportedAPIError(api string, allowed []string) error {
 
 // installBindings registers the production surface: pm (variables,
 // environment, collectionVariables, request, response, execution,
-// test/expect) and console. pm.sendRequest arrives in a later phase and
-// raises the compatibility error until then.
+// test/expect/sendRequest) and console.
 func (e *engine) installBindings() {
 	rt := e.rt
 	pmTarget := rt.NewObject()
@@ -163,6 +162,9 @@ func (e *engine) installBindings() {
 	exec := rt.NewObject()
 	mustSet(exec, "skipRequest", func(goja.FunctionCall) goja.Value {
 		e.skipRequested = true
+		if e.runCancel != nil {
+			e.runCancel()
+		}
 		panic(rt.NewGoError(errSkipRequest))
 	})
 	mustSet(pmTarget, "execution", e.guarded(guardDef{
@@ -178,11 +180,12 @@ func (e *engine) installBindings() {
 	mustSet(pmTarget, "request", goja.Null())
 	mustSet(pmTarget, "response", goja.Null())
 	e.installAssertions()
+	e.installSendRequest()
 
 	pm := e.guarded(guardDef{
 		target:  pmTarget,
 		path:    "pm",
-		allowed: []string{"collectionVariables", "environment", "execution", "expect", "request", "response", "test", "variables"},
+		allowed: []string{"collectionVariables", "environment", "execution", "expect", "request", "response", "sendRequest", "test", "variables"},
 		unavailable: func(prop string) error {
 			switch prop {
 			case "request":
