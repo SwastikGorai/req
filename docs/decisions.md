@@ -2,6 +2,12 @@
 
 Consequential implementation choices, newest phase first. Routine reversible choices stay in code; cross-phase consequences live here and in handoff.md.
 
+## Phase 14 — Imported Postman scripts
+
+- **Imported events reuse the native script model and inherited walker.** `listen: prerequest` and `listen: test` map to the existing ordered pre/post arrays; `execution.InheritedScripts` remains the single collection → folder → request ordering rule and filters disabled entries.
+- **Provenance is also the runtime source label.** Imported script source, IDs and provenance stay unchanged; execution uses the provenance source/path for Goja diagnostics and falls back to the script ID for native scripts.
+- **Static compatibility checks stay intentionally shallow.** Import reports obvious `pm.globals`, `pm.iterationData`, timer and module usage, but runtime guards/reference errors remain authoritative for dynamically reached APIs. Strict mode rejects the import warning; lenient mode stores the script and lets execution fail loudly if reached.
+
 ## Phase 13 — Postman data import
 
 - **Import parsing is side-effect free and persistence reuses the store's atomic saves.** `internal/importer` decodes and normalizes the complete v2.1 tree before `SaveCollection`/`SaveEnvironment`; strict warnings therefore cannot leave partial files.

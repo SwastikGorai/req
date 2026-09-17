@@ -5,9 +5,12 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
+	"req/internal/execution"
+	"req/internal/model"
 	"req/internal/store"
 )
 
@@ -57,6 +60,36 @@ func TestPostmanNestedData(t *testing.T) {
 	}
 	if len(result.Warnings) != 0 {
 		t.Fatalf("clean fixture warnings = %+v", result.Warnings)
+	}
+}
+
+func TestPostmanScriptOrder(t *testing.T) {
+	result, err := ParsePostmanCollection(fixtureBytes(t, "postman-login.json"), Options{Source: "postman-login.json"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pre, post, err := execution.InheritedScripts(result.Collection, []string{"Imported Login", "Auth", "Login"})
+	if err != nil {
+		t.Fatalf("InheritedScripts: %v", err)
+	}
+	ids := func(entries []model.Script) []string {
+		out := make([]string, len(entries))
+		for i, entry := range entries {
+			out[i] = entry.ID
+		}
+		return out
+	}
+	if want := []string{"collection-pre-callback", "collection-pre-promise", "folder-pre", "request-pre"}; !reflect.DeepEqual(ids(pre), want) {
+		t.Fatalf("pre script order = %v, want %v", ids(pre), want)
+	}
+	if want := []string{"collection-post", "folder-post", "request-post"}; !reflect.DeepEqual(ids(post), want) {
+		t.Fatalf("post script order = %v, want %v", ids(post), want)
+	}
+	if got := result.Collection.Scripts.PreRequest[0]; got.Provenance == nil || got.Provenance.Source != "postman" || got.Provenance.OriginalID != got.ID || !strings.Contains(got.Source, "\n") {
+		t.Fatalf("script source/provenance = %+v, want joined lines and original provenance", got)
+	}
+	if result.Collection.Scripts.PreRequest[2].Enabled {
+		t.Fatal("disabled imported script was enabled")
 	}
 }
 

@@ -1,0 +1,116 @@
+{
+  "info": {
+    "_postman_id": "postman-login-001",
+    "name": "Imported Login",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {"key": "callback_url", "value": "https://callback.example.test/token"},
+    {"key": "promise_url", "value": "https://promise.example.test/token"},
+    {"key": "api_url", "value": "https://api.example.test"}
+  ],
+  "event": [
+    {
+      "id": "collection-pre-callback",
+      "listen": "prerequest",
+      "script": {
+        "id": "collection-pre-callback",
+        "exec": [
+          "pm.sendRequest({\"url\":\"{{callback_url}}\"}, function (err, response) {",
+          "  if (err) throw new Error(err);",
+          "  pm.variables.set(\"callback_token\", response.json().token);",
+          "  console.log(\"collection-callback\");",
+          "});"
+        ]
+      }
+    },
+    {
+      "id": "collection-pre-promise",
+      "listen": "prerequest",
+      "script": {
+        "id": "collection-pre-promise",
+        "exec": [
+          "(async function () {",
+          "  const response = await pm.sendRequest(\"{{promise_url}}\");",
+          "  pm.variables.set(\"promise_token\", response.json().token);",
+          "  console.log(\"collection-promise\");",
+          "})();"
+        ]
+      }
+    },
+    {
+      "id": "collection-pre-disabled",
+      "listen": "prerequest",
+      "disabled": true,
+      "script": {
+        "id": "collection-pre-disabled",
+        "exec": ["console.log(\"disabled\");"]
+      }
+    },
+    {
+      "id": "collection-post",
+      "listen": "test",
+      "script": {
+        "id": "collection-post",
+        "exec": ["pm.test(\"collection post\", function () { pm.response.to.have.status(200); });"]
+      }
+    }
+  ],
+  "item": [
+    {
+      "id": "folder-auth",
+      "name": "Auth",
+      "event": [
+        {
+          "id": "folder-pre",
+          "listen": "prerequest",
+          "script": {
+            "id": "folder-pre",
+            "exec": ["pm.variables.set(\"folder_marker\", \"folder\");", "console.log(\"folder-pre\");"]
+          }
+        },
+        {
+          "id": "folder-post",
+          "listen": "test",
+          "script": {
+            "id": "folder-post",
+            "exec": ["pm.test(\"folder post\", function () { pm.response.to.have.status(200); });"]
+          }
+        }
+      ],
+      "item": [
+        {
+          "id": "request-login",
+          "name": "Login",
+          "request": {
+            "method": "GET",
+            "url": "{{api_url}}/profile",
+            "header": [
+              {"key": "X-Callback", "value": "{{callback_token}}"},
+              {"key": "X-Promise", "value": "{{promise_token}}"},
+              {"key": "X-Folder", "value": "{{folder_marker}}"}
+            ]
+          },
+          "event": [
+            {
+              "id": "request-pre",
+              "listen": "prerequest",
+              "script": {
+                "id": "request-pre",
+                "exec": ["console.log(\"request-pre\");"]
+              }
+            },
+            {
+              "id": "request-post",
+              "listen": "test",
+              "script": {
+                "id": "request-post",
+                "exec": ["pm.test(\"request post\", function () { pm.response.to.have.status(200); });"]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

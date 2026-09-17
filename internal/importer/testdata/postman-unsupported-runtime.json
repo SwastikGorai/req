@@ -1,0 +1,27 @@
+{
+  "info": {
+    "_postman_id": "postman-runtime-001",
+    "name": "Unsupported Runtime",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "id": "runtime-pre",
+      "listen": "prerequest",
+      "script": {
+        "id": "runtime-pre",
+        "exec": ["pm.globals.get(\"token\");"]
+      }
+    }
+  ],
+  "item": [
+    {
+      "id": "runtime-request",
+      "name": "Request",
+      "request": {
+        "method": "GET",
+        "url": "https://example.test/runtime"
+      }
+    }
+  ]
+}

@@ -235,7 +235,7 @@ func preferAssertions(code int, assertFailed bool) int {
 func runPhase(ctx context.Context, eng scripting.Engine, entries []model.Script, timeout time.Duration, stderr io.Writer) (res phaseResult, skipID string, assertFailed bool) {
 	for _, entry := range entries {
 		scriptCtx, cancel := context.WithTimeout(ctx, timeout)
-		rep, err := eng.Run(scriptCtx, scripting.Source{Name: entry.ID, Code: entry.Source})
+		rep, err := eng.Run(scriptCtx, scripting.Source{Name: scriptSourceName(entry), Code: entry.Source})
 		cancel()
 		for _, line := range rep.Logs {
 			fmt.Fprintf(stderr, "%s: %s\n", entry.ID, line)
@@ -261,4 +261,19 @@ func runPhase(ctx context.Context, eng scripting.Engine, entries []model.Script,
 		}
 	}
 	return phaseDone, "", assertFailed
+}
+
+func scriptSourceName(entry model.Script) string {
+	if p := entry.Provenance; p != nil {
+		if p.Source != "" && p.Path != "" {
+			return p.Source + ":" + p.Path
+		}
+		if p.Path != "" {
+			return p.Path
+		}
+		if p.Source != "" {
+			return p.Source
+		}
+	}
+	return entry.ID
 }
