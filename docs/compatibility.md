@@ -44,3 +44,23 @@ Static import checks intentionally detect only obvious unsupported calls; they
 do not claim complete JavaScript analysis. Strict import rejects those warnings
 before writing, while lenient import preserves the source and lets the runtime
 report dynamically reached unsupported APIs.
+
+## Phase 15 — cURL command import
+
+The cURL importer accepts one `curl` invocation using POSIX-like quoting and
+backslash-newline continuations. It maps `-X`/`--request`, `-H`/`--header`,
+the supported data and JSON flags, `-F`/`--form`, `-u`/`--user`, `-G`/`--get`,
+`-L`/`--location` and `-k`/`--insecure` into one native request. Repeated data
+pieces join with `&`; repeated JSON pieces join directly. `-G` appends the
+provided data to the URL without re-encoding it.
+
+The importer never invokes a shell, expands variables, follows shell
+pipelines/redirections, or reads `@file` attachments. Body and form file
+markers remain untrusted references with the cURL source path in import
+provenance; they require the existing remap/path checks before execution.
+Without `-L`, imported requests explicitly disable redirect following, while
+`-k` preserves the requested insecure TLS setting. Unknown flags, multiple
+URLs, active shell constructs and unsupported option combinations fail before
+the destination request is written. `--data @file` is retained with a warning
+because the native file reference cannot reproduce cURL's newline/NUL
+stripping; strict mode rejects that warning.

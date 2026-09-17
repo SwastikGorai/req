@@ -1,6 +1,6 @@
 # Phase Manifest
 
-Keep status synchronized with PLAN.md and individual checkpoints. Phases 0–14 are implemented; current verification and corrections are recorded in [verification.md](../verification.md).
+Keep status synchronized with PLAN.md and individual checkpoints. Phases 0–15 are implemented; current verification and corrections are recorded in [verification.md](../verification.md).
 
 | Phase | Name | Status | Depends on | File |
 |---|---|---|---|---|
@@ -19,7 +19,7 @@ Keep status synchronized with PLAN.md and individual checkpoints. Phases 0–14 
 | 12 | Promises, deadlines and cleanup | [x] Complete | Phase 11 | [phase-12-async-promises.md](phase-12-async-promises.md) |
 | 13 | Postman collection and environment import | [x] Complete | Phase 12 | [phase-13-postman-data.md](phase-13-postman-data.md) |
 | 14 | Imported Postman scripts | [x] Complete | Phase 13 | [phase-14-postman-scripts.md](phase-14-postman-scripts.md) |
-| 15 | cURL command import | [ ] Not started | Phase 14 | [phase-15-curl-import.md](phase-15-curl-import.md) |
+| 15 | cURL command import | [x] Complete | Phase 14 | [phase-15-curl-import.md](phase-15-curl-import.md) |
 | 16 | cURL export | [ ] Not started | Phase 15 | [phase-16-curl-export.md](phase-16-curl-export.md) |
 | 17 | Persist extracted variables safely | [ ] Not started | Phase 16 | [phase-17-variable-persistence.md](phase-17-variable-persistence.md) |
 | 18 | Structured output and downloads | [ ] Not started | Phase 17 | [phase-18-output.md](phase-18-output.md) |

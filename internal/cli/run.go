@@ -48,6 +48,12 @@ func runRun(ctx context.Context, inv invocation, stdout, stderr io.Writer) int {
 	}
 	parsed.pol.Variables = scope
 	parsed.pol.BodyBase = ws.Root()
+	if rp.Item.Request.FollowRedirects != nil && parsed.pol.FollowRedirects {
+		parsed.pol.FollowRedirects = *rp.Item.Request.FollowRedirects
+	}
+	if rp.Item.Request.InsecureTLS {
+		parsed.pol.InsecureTLS = true
+	}
 	saved := *rp.Item.Request
 	saved.Auth = rp.Auth
 	pre, post, err := execution.InheritedScripts(rp.Collection, rp.Segments)

@@ -1,6 +1,6 @@
 # req — Iterative Implementation Plan
 
-> Living document. Start here. Phases 0–14 are implemented and verified. See [verification.md](verification.md) for the 2026-09-12 re-audit, prerequisite corrections and continuation evidence. Next: Phase 15.
+> Living document. Start here. Phases 0–15 are implemented and verified. See [verification.md](verification.md) for the 2026-09-12 re-audit, prerequisite corrections and continuation evidence. Next: Phase 16.
 
 ## Goal & Context
 
@@ -33,7 +33,7 @@
 | 12 | Promises, deadlines and cleanup | [x] Complete | Phase 11 | [phase-12-async-promises.md](phases/phase-12-async-promises.md) |
 | 13 | Postman collection and environment import | [x] Complete | Phase 12 | [phase-13-postman-data.md](phases/phase-13-postman-data.md) |
 | 14 | Imported Postman scripts | [x] Complete | Phase 13 | [phase-14-postman-scripts.md](phases/phase-14-postman-scripts.md) |
-| 15 | cURL command import | [ ] Not started | Phase 14 | [phase-15-curl-import.md](phases/phase-15-curl-import.md) |
+| 15 | cURL command import | [x] Complete | Phase 14 | [phase-15-curl-import.md](phases/phase-15-curl-import.md) |
 | 16 | cURL export | [ ] Not started | Phase 15 | [phase-16-curl-export.md](phases/phase-16-curl-export.md) |
 | 17 | Persist extracted variables safely | [ ] Not started | Phase 16 | [phase-17-variable-persistence.md](phases/phase-17-variable-persistence.md) |
 | 18 | Structured output and downloads | [ ] Not started | Phase 17 | [phase-18-output.md](phases/phase-18-output.md) |

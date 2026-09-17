@@ -54,6 +54,12 @@ type Request struct {
 	Body    *Body           `json:"body,omitempty"`
 	Scripts *Scripts        `json:"scripts,omitempty"`
 	Import  *ImportMetadata `json:"import,omitempty"`
+	// FollowRedirects is nil for native requests (the CLI default is follow).
+	// Imported cURL requests set it explicitly to preserve cURL's no-follow
+	// default unless -L was present.
+	FollowRedirects *bool `json:"follow_redirects,omitempty"`
+	// InsecureTLS is set only when the source explicitly requested -k.
+	InsecureTLS bool `json:"insecure_tls,omitempty"`
 }
 
 // ImportMetadata keeps source context and any intentionally lossy conversion

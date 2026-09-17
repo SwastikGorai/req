@@ -138,6 +138,8 @@ Send flags:
                                                  import a Postman v2.1 collection
   req import postman-env FILE [--name NAME] [--strict]
                                                  import a Postman environment
+  req import curl --file FILE --save-as PATH [--strict]
+                                                 import one cURL request
 
   req --version
   req help

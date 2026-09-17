@@ -2,6 +2,13 @@
 
 Consequential implementation choices, newest phase first. Routine reversible choices stay in code; cross-phase consequences live here and in handoff.md.
 
+## Phase 15 — cURL command import
+
+- **Parsing is a small shell-free tokenizer, not a shell invocation.** It handles POSIX single/double quotes, escaped characters and backslash-newline continuations, then rejects active command separators, pipelines, redirections, substitutions, expansions, unknown flags and multiple URLs.
+- **Native request policy carries cURL redirect/TLS intent.** Imported requests set an explicit `FollowRedirects` value (false unless `-L`) and `InsecureTLS` only for `-k`; `req run` applies these saved values while CLI `--no-follow`/`--insecure` remain execution overrides.
+- **Attachment references remain untrusted.** `@file` body/form markers are stored without reading the path, and the cURL source is retained in import metadata. `--data @file` warns about cURL's file normalization because the native streaming body cannot strip newlines/NULs without reading at import time.
+- **The importer reuses native persistence.** `ImportCurl` parses completely before `Workspace.CreateRequest`, so strict warnings and malformed commands leave no destination request behind; no Phase 16 exporter or generic parser framework was added.
+
 ## Phase 14 — Imported Postman scripts
 
 - **Imported events reuse the native script model and inherited walker.** `listen: prerequest` and `listen: test` map to the existing ordered pre/post arrays; `execution.InheritedScripts` remains the single collection → folder → request ordering rule and filters disabled entries.
