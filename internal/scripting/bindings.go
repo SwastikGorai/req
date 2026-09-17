@@ -485,6 +485,14 @@ func (e *engine) buildRequestBody(m *ExecRequest) goja.Value {
 
 // buildResponse builds the pm.response adapter over r.
 func (e *engine) buildResponse(r *ResponseData) goja.Value {
+	return e.buildResponseValue(r, false)
+}
+
+// buildResponseValue optionally makes the outer response object safe to pass
+// through Promise resolution. Promise resolution probes an object’s "then"
+// property; the normal compatibility proxy must reject unknown properties,
+// so Promise results allow that one probe and return undefined.
+func (e *engine) buildResponseValue(r *ResponseData, promiseSafe bool) goja.Value {
 	rt := e.rt
 	obj := rt.NewObject()
 	mustSet(obj, "code", r.Code)
@@ -514,6 +522,11 @@ func (e *engine) buildResponse(r *ResponseData) goja.Value {
 		return rt.ToValue(v)
 	})
 	mustSet(obj, "text", func(goja.FunctionCall) goja.Value { return rt.ToValue(string(r.Body)) })
+	allowed := []string{"code", "headers", "json", "responseTime", "status", "text", "to"}
+	if promiseSafe {
+		mustSet(obj, "then", goja.Undefined())
+		allowed = []string{"code", "headers", "json", "responseTime", "status", "text", "then", "to"}
+	}
 
 	// The status assertion chain: pm.response.to.have.status(code).
 	have := rt.NewObject()
@@ -528,7 +541,7 @@ func (e *engine) buildResponse(r *ResponseData) goja.Value {
 
 	return e.guarded(guardDef{
 		target: obj, path: "pm.response",
-		allowed: []string{"code", "headers", "json", "responseTime", "status", "text", "to"},
+		allowed: allowed,
 	})
 }
 

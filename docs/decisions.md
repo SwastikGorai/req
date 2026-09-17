@@ -2,6 +2,14 @@
 
 Consequential implementation choices, newest phase first. Routine reversible choices stay in code; cross-phase consequences live here and in handoff.md.
 
+## Phase 12 — Promise settlement and cleanup
+
+- **Promise form reuses the Phase 11 auxiliary scheduler.** `pm.sendRequest(request)` creates a Goja Promise and stores its owner-only resolve/reject functions on the tracked task; the existing two-argument callback form remains unchanged. Host results never carry JS values across goroutines.
+- **Promise reactions are flushed by the owner loop.** Goja drains jobs when `RunProgram` returns, but host completions happen afterward, so the owner invokes an empty script after each drain turn to run reactions that may mutate variables or schedule nested requests. A response adapter used as a Promise fulfillment value permits only the required undefined `then` probe; normal `pm.response` remains strictly guarded.
+- **Unhandled rejection policy uses Goja's tracker.** Reject events are retained in owner state and removed on Handle events; after each Promise-job turn, the first remaining rejection fails the script. A network or auxiliary body-limit rejection with a catch handler therefore remains recoverable, while ignored/re-thrown chain rejections fail with a loud diagnostic.
+- **Cancellation is context-first and generation-checked.** Script timeout, parent cancellation, skip and runtime errors cancel the per-entry context; active workers honor it, queued work is dropped, and owner delivery checks context/generation/skip before invoking callbacks or settling Promises. The pending counter is cleared when a run ends so late workers cannot affect a later run.
+- **Timers/modules stay absent.** No `setTimeout`/`setInterval`/`require` shim is installed; Goja's source-located ReferenceError is the loud rejection for these deferred APIs, avoiding fake asynchronous behavior or filesystem/module access.
+
 ## Phase 11 — Auxiliary callback requests
 
 - **`pm.sendRequest` is callback-only in this phase.** String URLs and the supported request object are normalized on the owner goroutine, then sent through `httpclient.Send`/`BuildBody`; Promise return/settlement remains Phase 12 work so an untracked Promise cannot finish a script early.

@@ -53,6 +53,10 @@ type engine struct {
 	auxTotal      int
 	auxActive     int
 	auxQueue      []auxTask
+	// Promise rejection tracking is owner-goroutine state. Goja reports a
+	// rejection before a later catch can be attached; Handle removes it again.
+	unhandledPromises map[*goja.Promise]struct{}
+	unhandledOrder    []*goja.Promise
 
 	// The pm surface's phase state. Set*Request methods are called by the
 	// execution between runs, when no script can be on the stack.
@@ -82,6 +86,8 @@ func NewEngine(scope *variables.Scope) *engine {
 		httpClient: httpclient.Client(httpclient.Options{FollowRedirects: true}),
 		scope:      scope,
 	}
+	e.unhandledPromises = make(map[*goja.Promise]struct{})
+	e.rt.SetPromiseRejectionTracker(e.trackPromiseRejection)
 	e.installBindings()
 	go e.loop()
 	return e
@@ -162,6 +168,7 @@ func (e *engine) runOnOwner(ctx context.Context, src Source) runResult {
 	e.runCtx, e.runGen = ctx, e.runGen+1
 	e.pending.Store(0)
 	e.auxTotal, e.auxActive, e.auxQueue = 0, 0, nil
+	e.unhandledPromises, e.unhandledOrder = make(map[*goja.Promise]struct{}), nil
 
 	prg, err := goja.Compile(src.Name, src.Code, false)
 	if err == nil {
@@ -174,8 +181,12 @@ func (e *engine) runOnOwner(ctx context.Context, src Source) runResult {
 	if err == nil {
 		err = e.runErr
 	}
+	if err != nil && e.runCancel != nil {
+		e.runCancel()
+	}
 	e.running, e.runCtx, e.runCancel = false, nil, nil
 	e.auxQueue, e.auxActive = nil, 0
+	e.pending.Store(0)
 	if e.skipRequested {
 		// The skip flag wins over a later runtime error: a script may have
 		// caught the skipRequest sentinel after calling it.
@@ -187,11 +198,10 @@ func (e *engine) runOnOwner(ctx context.Context, src Source) runResult {
 	return runResult{Report{Logs: e.logs, Tests: e.tests}, nil}
 }
 
-// drain settles tracked asynchronous work. Goja runs queued promise reaction
-// jobs automatically whenever the JS stack empties (after RunProgram and
-// after each owner-thread callback), so pending == 0 means everything has
-// settled — including reactions that scheduled more host work, because those
-// raised pending again before the check.
+// drain settles tracked asynchronous work. Goja drains jobs after RunProgram,
+// while host completions settle Promises after that call has returned; the
+// explicit empty RunString below flushes those owner-thread reactions before
+// pending work is checked again.
 func (e *engine) drain(ctx context.Context) error {
 	for {
 		if e.skipRequested {
@@ -200,8 +210,20 @@ func (e *engine) drain(ctx context.Context) error {
 		if err := e.runErr; err != nil {
 			return err
 		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if err := e.runPromiseJobs(); err != nil {
+			return err
+		}
+		if err := e.runErr; err != nil {
+			return err
+		}
+		if err := e.unhandledPromiseError(); err != nil {
+			return err
+		}
 		if e.pending.Load() == 0 {
-			return ctx.Err()
+			return nil
 		}
 		select {
 		case job := <-e.jobs:
@@ -210,6 +232,45 @@ func (e *engine) drain(ctx context.Context) error {
 			return ctx.Err()
 		}
 	}
+}
+
+// runPromiseJobs lets Goja flush reactions queued by an owner-thread Promise
+// settlement. RunProgram drains its own jobs, but a host completion settles a
+// Promise after RunProgram has returned.
+func (e *engine) runPromiseJobs() error {
+	_, err := e.rt.RunString("")
+	return err
+}
+
+func (e *engine) trackPromiseRejection(p *goja.Promise, operation goja.PromiseRejectionOperation) {
+	if !e.running || p == nil {
+		return
+	}
+	switch operation {
+	case goja.PromiseRejectionReject:
+		if _, exists := e.unhandledPromises[p]; !exists {
+			e.unhandledPromises[p] = struct{}{}
+			e.unhandledOrder = append(e.unhandledOrder, p)
+		}
+	case goja.PromiseRejectionHandle:
+		delete(e.unhandledPromises, p)
+	}
+}
+
+func (e *engine) unhandledPromiseError() error {
+	for _, p := range e.unhandledOrder {
+		if _, ok := e.unhandledPromises[p]; !ok {
+			continue
+		}
+		reason := "undefined"
+		if value := p.Result(); value != nil {
+			if err := e.rt.Try(func() { reason = value.String() }); err != nil {
+				reason = err.Error()
+			}
+		}
+		return fmt.Errorf("unhandled Promise rejection: %s", reason)
+	}
+	return nil
 }
 
 func (e *engine) Close() error {
@@ -262,6 +323,9 @@ func (e *engine) fetch(ctx context.Context, url string) httpResult {
 func (e *engine) setRunErr(err error) {
 	if e.runErr == nil {
 		e.runErr = err
+		if e.runCancel != nil {
+			e.runCancel()
+		}
 	}
 }
 

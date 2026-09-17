@@ -35,33 +35,50 @@ type auxRequest struct {
 }
 
 type auxTask struct {
-	request  auxRequest
-	callback goja.Callable
+	request        auxRequest
+	callback       goja.Callable
+	promise        *goja.Promise
+	promiseResolve func(interface{}) error
+	promiseReject  func(interface{}) error
 }
 
-// installSendRequest adds the callback form only. Promise settlement belongs
-// to the next async phase; accepting a Promise here would report false
-// success before that phase can track it.
+// installSendRequest accepts the callback form and the one-argument Promise
+// form. Both forms share request parsing, scheduling, limits and delivery.
 func (e *engine) installSendRequest() {
 	rt := e.rt
 	mustSet(e.pmTarget, "sendRequest", func(call goja.FunctionCall) goja.Value {
-		if len(call.Arguments) != 2 {
+		switch len(call.Arguments) {
+		case 1:
+			request, err := e.parseAuxRequest(call.Argument(0))
+			if err != nil {
+				panic(rt.NewGoError(fmt.Errorf("pm.sendRequest: %w", err)))
+			}
+			promise, resolve, reject := rt.NewPromise()
+			e.scheduleAux(auxTask{
+				request:        request,
+				promise:        promise,
+				promiseResolve: resolve,
+				promiseReject:  reject,
+			})
+			return rt.ToValue(promise)
+		case 2:
+			callback, ok := goja.AssertFunction(call.Argument(1))
+			if !ok {
+				panic(rt.NewTypeError("pm.sendRequest(request, callback) requires a callback function"))
+			}
+			request, err := e.parseAuxRequest(call.Argument(0))
+			if err != nil {
+				panic(rt.NewGoError(fmt.Errorf("pm.sendRequest: %w", err)))
+			}
+			e.scheduleAux(auxTask{request: request, callback: callback})
+			return goja.Undefined()
+		default:
 			panic(rt.NewTypeError("pm.sendRequest(request, callback) requires exactly one callback"))
 		}
-		callback, ok := goja.AssertFunction(call.Argument(1))
-		if !ok {
-			panic(rt.NewTypeError("pm.sendRequest(request, callback) requires a callback function"))
-		}
-		request, err := e.parseAuxRequest(call.Argument(0))
-		if err != nil {
-			panic(rt.NewGoError(fmt.Errorf("pm.sendRequest: %w", err)))
-		}
-		e.scheduleAux(request, callback)
-		return goja.Undefined()
 	})
 }
 
-func (e *engine) scheduleAux(request auxRequest, callback goja.Callable) {
+func (e *engine) scheduleAux(task auxTask) {
 	if !e.running || e.runCtx == nil {
 		panic(e.rt.NewGoError(fmt.Errorf("pm.sendRequest is only available during a script run")))
 	}
@@ -70,7 +87,6 @@ func (e *engine) scheduleAux(request auxRequest, callback goja.Callable) {
 	}
 	e.auxTotal++
 	e.pending.Add(1)
-	task := auxTask{request: request, callback: callback}
 	if e.auxActive < maxAuxiliaryConcurrent {
 		e.launchAux(task)
 		return
@@ -90,6 +106,10 @@ func (e *engine) launchAux(task auxTask) {
 				return
 			}
 			e.auxActive--
+			if ctx.Err() != nil || e.skipRequested {
+				e.pending.Add(-1)
+				return
+			}
 			e.deliverAux(task, result)
 		})
 	}()
@@ -104,10 +124,24 @@ func (e *engine) startQueuedAux() {
 	}
 }
 
-// deliverAux is called on the owner goroutine. The callback is the only
-// place where the response becomes a JS value.
+// deliverAux is called on the owner goroutine. It is the only place where a
+// response becomes a JS value or a Promise is settled.
 func (e *engine) deliverAux(task auxTask, result httpResult) {
 	defer e.pending.Add(-1)
+	if task.promise != nil {
+		var err error
+		if result.err != nil {
+			err = task.promiseReject(result.errValue(e.rt))
+		} else {
+			err = task.promiseResolve(e.auxPromiseResponseValue(result))
+		}
+		if err != nil {
+			e.setRunErr(fmt.Errorf("pm.sendRequest Promise settlement: %w", err))
+			return
+		}
+		e.startQueuedAux()
+		return
+	}
 	var callbackErr error
 	if result.err != nil {
 		_, callbackErr = task.callback(goja.Undefined(), result.errValue(e.rt), goja.Undefined())
@@ -127,6 +161,13 @@ func (e *engine) auxResponseValue(result httpResult) goja.Value {
 		return goja.Undefined()
 	}
 	return e.buildResponse(result.response)
+}
+
+func (e *engine) auxPromiseResponseValue(result httpResult) goja.Value {
+	if result.response == nil {
+		return goja.Undefined()
+	}
+	return e.buildResponseValue(result.response, true)
 }
 
 func (e *engine) fetchAux(ctx context.Context, request auxRequest) httpResult {

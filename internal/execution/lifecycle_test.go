@@ -555,6 +555,39 @@ func TestCallbackAuthBeforeMain(t *testing.T) {
 	}
 }
 
+func TestPromiseAuthBeforeMain(t *testing.T) {
+	var mainHeader string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/token" {
+			_, _ = io.WriteString(w, `{"token":"t-1"}`)
+			return
+		}
+		mainHeader = r.Header.Get("X-Token")
+		_, _ = io.WriteString(w, "main")
+	}))
+	defer srv.Close()
+
+	saved := model.Request{
+		Method:  "GET",
+		URL:     srv.URL + "/main",
+		Headers: []model.Entry{{Key: "X-Token", Value: "{{token}}", Enabled: true}},
+	}
+	scope := &variables.Scope{Local: map[string]any{}}
+	pre := []model.Script{scriptEntry("token", `
+		pm.sendRequest("`+srv.URL+`/token").then(function (response) {
+			pm.variables.set("token", response.json().token);
+		});
+	`, true)}
+	code, stdout, stderr := runLifecyclePol(t, context.Background(), saved,
+		Policy{Variables: scope, FollowRedirects: true}, ScriptPolicy{}, pre, nil)
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0 (stderr: %s)", code, stderr)
+	}
+	if stdout != "main" || mainHeader != "t-1" {
+		t.Fatalf("main response/header = %q/%q, want main/t-1", stdout, mainHeader)
+	}
+}
+
 func TestPostTokenExtraction(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, `{"token":"t-1"}`)
