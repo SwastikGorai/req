@@ -43,6 +43,7 @@ type engine struct {
 	logs          []string
 	logBytes      int
 	logsTruncated bool            // a console cap was hit; the notice is appended once
+	tests         []TestResult    // pm.test outcomes, reset at the start of each run
 	runCtx        context.Context // active run's context, captured by host bindings
 	running       bool
 	runGen        uint64 // increments per Run; identifies late completions
@@ -147,6 +148,7 @@ func (e *engine) Run(ctx context.Context, src Source) (Report, error) {
 func (e *engine) runOnOwner(ctx context.Context, src Source) runResult {
 	e.rt.ClearInterrupt()
 	e.logs, e.logBytes, e.logsTruncated = nil, 0, false
+	e.tests = nil
 	e.runErr, e.running = nil, true
 	e.skipRequested = false
 	e.srcName = src.Name
@@ -169,12 +171,12 @@ func (e *engine) runOnOwner(ctx context.Context, src Source) runResult {
 	if e.skipRequested {
 		// The skip flag wins over a later runtime error: a script may have
 		// caught the skipRequest sentinel after calling it.
-		return runResult{Report{Logs: e.logs, Skipped: true}, nil}
+		return runResult{Report{Logs: e.logs, Tests: e.tests, Skipped: true}, nil}
 	}
 	if err != nil {
 		return runResult{Report{}, err}
 	}
-	return runResult{Report{Logs: e.logs}, nil}
+	return runResult{Report{Logs: e.logs, Tests: e.tests}, nil}
 }
 
 // drain settles tracked asynchronous work. Goja runs queued promise reaction

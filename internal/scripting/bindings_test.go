@@ -226,11 +226,11 @@ func TestUnknownPMAPI(t *testing.T) {
 		e.SetPreRequest(&ExecRequest{Method: "GET", URL: "http://x/"})
 
 		mustFail(t, e, "unsupported.js", `pm.sendRequest("http://x/", function () {})`,
-			`unsupported pm API "pm.sendRequest" at unsupported.js:1 (pre script; supported: collectionVariables, environment, execution, request, response, variables)`)
+			`unsupported pm API "pm.sendRequest" at unsupported.js:1 (pre script; supported: collectionVariables, environment, execution, expect, request, response, test, variables)`)
 	})
 
 	for _, tc := range []struct{ name, code, want string }{
-		{"pm.foo", `pm.foo`, `unsupported pm API "pm.foo" at api.js:1 (pre script; supported: collectionVariables, environment, execution, request, response, variables)`},
+		{"pm.foo", `pm.foo`, `unsupported pm API "pm.foo" at api.js:1 (pre script; supported: collectionVariables, environment, execution, expect, request, response, test, variables)`},
 		{"pm.variables.typo", `pm.variables.typo`, `unsupported pm API "pm.variables.typo" at api.js:1 (pre script; supported: get, has, replaceIn, set, unset)`},
 		{"pm.execution.typo", `pm.execution.typo`, `unsupported pm API "pm.execution.typo" at api.js:1 (pre script; supported: skipRequest)`},
 		{"console.typo", `console.typo`, `unsupported pm API "console.typo" at api.js:1 (pre script; supported: error, info, log, warn)`},

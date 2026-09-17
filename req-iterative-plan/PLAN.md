@@ -1,6 +1,6 @@
 # req — Iterative Implementation Plan
 
-> Living document. Start here. Phases 0–9 are implemented and verified. See [verification.md](verification.md) for the 2026-09-12 re-audit, prerequisite corrections and continuation evidence. Next: Phase 10.
+> Living document. Start here. Phases 0–10 are implemented and verified. See [verification.md](verification.md) for the 2026-09-12 re-audit, prerequisite corrections and continuation evidence. Next: Phase 11.
 
 ## Goal & Context
 
@@ -28,7 +28,7 @@
 | 7 | File uploads and body formats | [x] Complete | Phase 6 | [phase-7-body-files.md](phases/phase-7-body-files.md) |
 | 8 | Script storage and inherited execution | [x] Complete | Phase 7 | [phase-8-script-lifecycle.md](phases/phase-8-script-lifecycle.md) |
 | 9 | Variables, request mutation and response APIs | [x] Complete | Phase 8 | [phase-9-script-bindings.md](phases/phase-9-script-bindings.md) |
-| 10 | Tests and supported assertions | [ ] Not started | Phase 9 | [phase-10-assertions.md](phases/phase-10-assertions.md) |
+| 10 | Tests and supported assertions | [x] Complete | Phase 9 | [phase-10-assertions.md](phases/phase-10-assertions.md) |
 | 11 | Auxiliary requests with callbacks | [ ] Not started | Phase 10 | [phase-11-async-callbacks.md](phases/phase-11-async-callbacks.md) |
 | 12 | Promises, deadlines and cleanup | [ ] Not started | Phase 11 | [phase-12-async-promises.md](phases/phase-12-async-promises.md) |
 | 13 | Postman collection and environment import | [ ] Not started | Phase 12 | [phase-13-postman-data.md](phases/phase-13-postman-data.md) |

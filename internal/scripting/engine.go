@@ -1,8 +1,8 @@
 // Package scripting embeds the JavaScript runtime. It began as a feasibility
 // spike proving ownership, interruption and asynchronous host work; the
 // production pm surface (variables, request, response, execution) and console
-// live in bindings.go, while assertions (pm.test/pm.expect) and
-// pm.sendRequest arrive with later phases.
+// live in bindings.go, the assertions (pm.test/pm.expect) in assertions.go,
+// while pm.sendRequest arrives with a later phase.
 package scripting
 
 import "context"
@@ -13,9 +13,19 @@ type Source struct {
 	Code string
 }
 
+// TestResult is one named pm.test outcome.
+type TestResult struct {
+	Name   string
+	Failed bool
+	Error  string // the thrown error's message, first line only, when Failed
+}
+
 // Report is what a completed run hands back.
 type Report struct {
 	Logs []string
+	// Tests holds the pm.test outcomes in call order. Failed tests do not
+	// fail the run; the execution turns them into exit code 6.
+	Tests []TestResult
 	// Skipped reports that the script called pm.execution.skipRequest(),
 	// even when it caught the resulting sentinel.
 	Skipped bool

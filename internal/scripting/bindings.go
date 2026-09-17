@@ -152,9 +152,9 @@ func (e *engine) unsupportedAPIError(api string, allowed []string) error {
 }
 
 // installBindings registers the production surface: pm (variables,
-// environment, collectionVariables, request, response, execution) and
-// console. pm.test/pm.expect and pm.sendRequest arrive in later phases and
-// raise the compatibility error until then.
+// environment, collectionVariables, request, response, execution,
+// test/expect) and console. pm.sendRequest arrives in a later phase and
+// raises the compatibility error until then.
 func (e *engine) installBindings() {
 	rt := e.rt
 	pmTarget := rt.NewObject()
@@ -177,11 +177,12 @@ func (e *engine) installBindings() {
 		func() *map[string]any { return &e.scope.Collection }))
 	mustSet(pmTarget, "request", goja.Null())
 	mustSet(pmTarget, "response", goja.Null())
+	e.installAssertions()
 
 	pm := e.guarded(guardDef{
 		target:  pmTarget,
 		path:    "pm",
-		allowed: []string{"collectionVariables", "environment", "execution", "request", "response", "variables"},
+		allowed: []string{"collectionVariables", "environment", "execution", "expect", "request", "response", "test", "variables"},
 		unavailable: func(prop string) error {
 			switch prop {
 			case "request":
@@ -511,9 +512,20 @@ func (e *engine) buildResponse(r *ResponseData) goja.Value {
 	})
 	mustSet(obj, "text", func(goja.FunctionCall) goja.Value { return rt.ToValue(string(r.Body)) })
 
+	// The status assertion chain: pm.response.to.have.status(code).
+	have := rt.NewObject()
+	mustSet(have, "status", func(expected int) {
+		if r.Code != expected {
+			panic(rt.NewGoError(fmt.Errorf("expected response to have status code %d but got %d", expected, r.Code)))
+		}
+	})
+	to := rt.NewObject()
+	mustSet(to, "have", e.guarded(guardDef{target: have, path: "pm.response.to.have", allowed: []string{"status"}}))
+	mustSet(obj, "to", e.guarded(guardDef{target: to, path: "pm.response.to", allowed: []string{"have"}}))
+
 	return e.guarded(guardDef{
 		target: obj, path: "pm.response",
-		allowed: []string{"code", "headers", "json", "responseTime", "status", "text"},
+		allowed: []string{"code", "headers", "json", "responseTime", "status", "text", "to"},
 	})
 }
 

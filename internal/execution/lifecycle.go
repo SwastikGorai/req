@@ -96,12 +96,13 @@ const (
 
 // RunLifecycle runs pre scripts (unless disabled/absent), resolves and sends
 // the request, then runs post scripts, choosing exit codes per the contract:
-// cancellation 130 beats storage-free script failure 5, which beats
-// FailOnHTTPError 4 and transport failure 3. Pre scripts run against the
-// execution copy before ResolveRequest, so a pre-script failure stops
-// everything before variables resolve or anything is sent. With no scripts
-// to run (or --no-scripts) the body streams exactly like Execute; otherwise
-// it is buffered up to MaxScriptBodyBytes so post scripts can be run first.
+// cancellation 130 beats storage-free script failure 5, which beats failed
+// assertions 6, which beats FailOnHTTPError 4 and transport failure 3. Pre
+// scripts run against the execution copy before ResolveRequest, so a
+// pre-script failure stops everything before variables resolve or anything
+// is sent. With no scripts to run (or --no-scripts) the body streams exactly
+// like Execute; otherwise it is buffered up to MaxScriptBodyBytes so post
+// scripts can be run first.
 func RunLifecycle(ctx context.Context, saved model.Request, ov Overrides, pol Policy, sp ScriptPolicy, pre, post []model.Script, stdout, stderr io.Writer) int {
 	if sp.Disabled {
 		pre, post = nil, nil
@@ -129,7 +130,7 @@ func RunLifecycle(ctx context.Context, saved model.Request, ov Overrides, pol Po
 		timeout = DefaultScriptTimeout
 	}
 
-	res, skipID := runPhase(ctx, eng, pre, timeout, stderr)
+	res, skipID, assertFailed := runPhase(ctx, eng, pre, timeout, stderr)
 	switch res {
 	case phaseCanceled:
 		return codeCanceled
@@ -147,14 +148,14 @@ func RunLifecycle(ctx context.Context, saved model.Request, ov Overrides, pol Po
 	}
 
 	if len(post) == 0 {
-		return Execute(ctx, outgoing, stdout, stderr)
+		return preferAssertions(Execute(ctx, outgoing, stdout, stderr), assertFailed)
 	}
 
 	// The post phase needs the received response, so the body is buffered
 	// instead of streamed.
 	resp, code := dispatch(ctx, outgoing, stderr)
 	if resp == nil {
-		return code
+		return preferAssertions(code, assertFailed)
 	}
 	defer resp.Body.Close()
 	buf, err := io.ReadAll(io.LimitReader(resp.Body, MaxScriptBodyBytes+1))
@@ -164,7 +165,7 @@ func RunLifecycle(ctx context.Context, saved model.Request, ov Overrides, pol Po
 			return codeCanceled
 		}
 		fmt.Fprintf(stderr, "req: reading body: %v\n", err)
-		return codeTransport
+		return preferAssertions(codeTransport, assertFailed)
 	}
 	if len(buf) > MaxScriptBodyBytes {
 		fmt.Fprintf(stderr, "req: response body exceeds the 10 MiB script buffer limit; post-response scripts were not run\n")
@@ -172,7 +173,7 @@ func RunLifecycle(ctx context.Context, saved model.Request, ov Overrides, pol Po
 	}
 	if _, err := stdout.Write(buf); err != nil {
 		fmt.Fprintf(stderr, "req: writing body: %v\n", err)
-		return codeTransport
+		return preferAssertions(codeTransport, assertFailed)
 	}
 
 	// The read-only post view: the resolved outgoing request, with the body
@@ -193,7 +194,8 @@ func RunLifecycle(ctx context.Context, saved model.Request, ov Overrides, pol Po
 		Body:    buf,
 	})
 
-	res, skipID = runPhase(ctx, eng, post, timeout, stderr)
+	res, skipID, postFailed := runPhase(ctx, eng, post, timeout, stderr)
+	assertFailed = assertFailed || postFailed
 	switch res {
 	case phaseCanceled:
 		return codeCanceled
@@ -204,16 +206,28 @@ func RunLifecycle(ctx context.Context, saved model.Request, ov Overrides, pol Po
 		return codeScript
 	}
 	if pol.FailOnHTTPError && resp.StatusCode >= http.StatusBadRequest {
-		return codeHTTPFail
+		return preferAssertions(codeHTTPFail, assertFailed)
 	}
-	return codeSuccess
+	return preferAssertions(codeSuccess, assertFailed)
+}
+
+// preferAssertions applies 6 > 3 > 4 > 0 from the exit-code contract: a
+// failed assertion outranks transport, --fail and success outcomes, but
+// never cancellation or usage failures.
+func preferAssertions(code int, assertFailed bool) int {
+	if assertFailed && (code == codeSuccess || code == codeTransport || code == codeHTTPFail) {
+		return codeAssertions
+	}
+	return code
 }
 
 // runPhase runs one script phase's entries in stored order on eng, each
-// under its own timeout deadline, printing every entry's logs prefixed with
-// the entry ID. The first cancellation, runtime error or skip stops the
-// phase; in the skip case the returned ID names the entry that asked.
-func runPhase(ctx context.Context, eng scripting.Engine, entries []model.Script, timeout time.Duration, stderr io.Writer) (phaseResult, string) {
+// under its own timeout deadline, printing every entry's logs and pm.test
+// outcomes prefixed with the entry ID. The first cancellation, runtime error
+// or skip stops the phase; in the skip case the returned ID names the entry
+// that asked. The third result reports whether any recorded test failed, so
+// the caller can apply the exit-code contract even when the phase succeeded.
+func runPhase(ctx context.Context, eng scripting.Engine, entries []model.Script, timeout time.Duration, stderr io.Writer) (res phaseResult, skipID string, assertFailed bool) {
 	for _, entry := range entries {
 		scriptCtx, cancel := context.WithTimeout(ctx, timeout)
 		rep, err := eng.Run(scriptCtx, scripting.Source{Name: entry.ID, Code: entry.Source})
@@ -221,17 +235,25 @@ func runPhase(ctx context.Context, eng scripting.Engine, entries []model.Script,
 		for _, line := range rep.Logs {
 			fmt.Fprintf(stderr, "%s: %s\n", entry.ID, line)
 		}
+		for _, tr := range rep.Tests {
+			if tr.Failed {
+				assertFailed = true
+				fmt.Fprintf(stderr, "%s: FAIL %s: %s\n", entry.ID, tr.Name, tr.Error)
+			} else {
+				fmt.Fprintf(stderr, "%s: PASS %s\n", entry.ID, tr.Name)
+			}
+		}
 		if ctx.Err() != nil {
 			fmt.Fprintln(stderr, "req: canceled")
-			return phaseCanceled, ""
+			return phaseCanceled, "", assertFailed
 		}
 		if err != nil {
 			fmt.Fprintf(stderr, "req: script %s failed: %v\n", entry.ID, err)
-			return phaseFailed, ""
+			return phaseFailed, "", assertFailed
 		}
 		if rep.Skipped {
-			return phaseSkipped, entry.ID
+			return phaseSkipped, entry.ID, assertFailed
 		}
 	}
-	return phaseDone, ""
+	return phaseDone, "", assertFailed
 }

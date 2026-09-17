@@ -11,13 +11,14 @@ import (
 
 // Exit codes from IMPLEMENTATION.md section 6; later phases add the rest.
 const (
-	exitSuccess   = 0
-	exitUsage     = 2
-	exitTransport = 3
-	exitHTTPFail  = 4
-	exitScript    = 5 // a pre/post script failed, or the body hit the script buffer limit
-	exitStorage   = 7
-	exitCanceled  = 130
+	exitSuccess    = 0
+	exitUsage      = 2
+	exitTransport  = 3
+	exitHTTPFail   = 4
+	exitScript     = 5 // a pre/post script failed, or the body hit the script buffer limit
+	exitAssertions = 6 // failed pm.test assertions
+	exitStorage    = 7
+	exitCanceled   = 130
 )
 
 // osGetwd is a variable so tests could stub it; the working directory is

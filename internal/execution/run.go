@@ -12,12 +12,13 @@ import (
 
 // Exit codes returned by Execute, matching the CLI's contract.
 const (
-	codeSuccess   = 0
-	codeUsage     = 2
-	codeTransport = 3
-	codeHTTPFail  = 4
-	codeScript    = 5 // a pre/post script failed, or the body hit the script buffer limit
-	codeCanceled  = 130
+	codeSuccess    = 0
+	codeUsage      = 2
+	codeTransport  = 3
+	codeHTTPFail   = 4
+	codeScript     = 5 // a pre/post script failed, or the body hit the script buffer limit
+	codeAssertions = 6 // failed pm.test assertions
+	codeCanceled   = 130
 )
 
 // Execute sends o and renders the result exactly like `req send`: the status
