@@ -6,6 +6,7 @@ package execution
 import (
 	"req/internal/httpclient"
 	"req/internal/model"
+	"req/internal/output"
 	"req/internal/variables"
 	"time"
 )
@@ -20,6 +21,7 @@ type Outgoing struct {
 	InsecureTLS     bool
 	FollowRedirects bool
 	FailOnHTTPError bool
+	Output          output.Options
 }
 
 // Overrides are structural CLI overrides applied to an execution copy of a
@@ -40,4 +42,5 @@ type Policy struct {
 	InsecureTLS     bool
 	FollowRedirects bool
 	FailOnHTTPError bool
+	Output          output.Options
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 )
@@ -21,10 +22,11 @@ const maxRedirects = 10
 // Response is one received HTTP exchange. The caller owns Body and must close
 // it on every path; a transport error returns no usable Response.
 type Response struct {
-	StatusCode int
-	Headers    http.Header
-	Body       io.ReadCloser
-	Duration   time.Duration
+	StatusCode    int
+	Headers       http.Header
+	HeaderEntries [][2]string
+	Body          io.ReadCloser
+	Duration      time.Duration
 }
 
 // DefaultClient returns the process-wide default policy: 30s deadline, at
@@ -68,10 +70,22 @@ func Send(ctx context.Context, client *http.Client, method, url string, body io.
 	if err != nil {
 		return nil, err
 	}
+	names := make([]string, 0, len(resp.Header))
+	for name := range resp.Header {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	entries := make([][2]string, 0, len(resp.Header))
+	for _, name := range names {
+		for _, value := range resp.Header[name] {
+			entries = append(entries, [2]string{name, value})
+		}
+	}
 	return &Response{
-		StatusCode: resp.StatusCode,
-		Headers:    resp.Header,
-		Body:       resp.Body,
-		Duration:   time.Since(start),
+		StatusCode:    resp.StatusCode,
+		Headers:       resp.Header,
+		HeaderEntries: entries,
+		Body:          resp.Body,
+		Duration:      time.Since(start),
 	}, nil
 }

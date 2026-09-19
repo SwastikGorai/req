@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"req/internal/model"
+	"req/internal/output"
 	"req/internal/variables"
 )
 
@@ -420,6 +422,63 @@ func TestBodyLimitNoPostScripts(t *testing.T) {
 	}
 	if strings.Contains(stderr, "post-ran") {
 		t.Errorf("stderr = %q, want no post scripts past the body limit", stderr)
+	}
+}
+
+func TestLargeBodyScriptFailure(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(bytes.Repeat([]byte("x"), MaxScriptBodyBytes+1))
+	}))
+	defer srv.Close()
+	var stdout, stderr bytes.Buffer
+	code := RunLifecycle(context.Background(), model.Request{Method: "GET", URL: srv.URL}, Overrides{}, Policy{
+		Variables: &variables.Scope{}, FollowRedirects: true,
+		Output: output.Options{Format: "json"},
+	}, ScriptPolicy{}, nil, []model.Script{scriptEntry("post", `console.log("must-not-run")`, true)}, &stdout, &stderr)
+	if code != codeScript {
+		t.Fatalf("exit = %d, want %d (stderr=%q)", code, codeScript, stderr.String())
+	}
+	var envelope struct {
+		Body   any      `json:"body"`
+		Errors []string `json:"errors"`
+		Logs   []string `json:"logs"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &envelope); err != nil {
+		t.Fatalf("stdout = %q: %v", stdout.String(), err)
+	}
+	if envelope.Body != nil || len(envelope.Errors) == 0 || len(envelope.Logs) != 0 || strings.Contains(stdout.String(), "must-not-run") {
+		t.Fatalf("body-limit envelope = %#v, stdout=%q", envelope, stdout.String())
+	}
+}
+
+func TestCombinedErrorPrecedence(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = io.WriteString(w, "missing")
+	}))
+	defer srv.Close()
+	var stdout, stderr bytes.Buffer
+	code := RunLifecycle(context.Background(), model.Request{Method: "GET", URL: srv.URL}, Overrides{}, Policy{
+		Variables: &variables.Scope{}, FollowRedirects: true, FailOnHTTPError: true,
+		Output: output.Options{Format: "json"},
+	}, ScriptPolicy{
+		Persist: func(context.Context) error { return errors.New("revision conflict") },
+	}, nil, []model.Script{scriptEntry("post", `pm.test("status", function () { pm.expect(1).to.equal(2); });`, true)}, &stdout, &stderr)
+	if code != codeStorage {
+		t.Fatalf("exit = %d, want %d (stderr=%q)", code, codeStorage, stderr.String())
+	}
+	var envelope struct {
+		Body   string   `json:"body"`
+		Errors []string `json:"errors"`
+		Tests  []struct {
+			Failed bool `json:"failed"`
+		} `json:"tests"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &envelope); err != nil {
+		t.Fatalf("stdout = %q: %v", stdout.String(), err)
+	}
+	if envelope.Body != "missing" || len(envelope.Tests) != 1 || !envelope.Tests[0].Failed || len(envelope.Errors) != 1 || envelope.Errors[0] != "revision conflict" {
+		t.Fatalf("envelope = %#v", envelope)
 	}
 }
 

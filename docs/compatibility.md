@@ -103,3 +103,24 @@ actionable storage error if either target changed outside the journal. Saved
 relative attachment files still execute relative to the workspace root; cURL
 exports retain literal file spelling and therefore must run from the matching
 base directory.
+
+## Phase 18 — Structured output and downloads
+
+`req send` and `req run` accept `--output PATH`, `--raw`, `--verbose` and
+`--output-format json`. Normal stdout remains response-body-only and status,
+headers, script logs and errors stay on stderr. JSON mode emits exactly one
+version-1 envelope with ordered response headers, duration, body text or
+base64, script tests/logs, errors and skipped state. `--raw` is incompatible
+with JSON; terminal-only JSON pretty-printing is disabled for pipes and other
+non-terminals.
+
+`--output` writes the complete body through a same-directory temporary file
+before replacement. JSON output references the literal destination path and
+does not duplicate its bytes. A response body buffered for scripts or JSON is
+limited to 10 MiB; post scripts do not run on an over-limit body. A no-script
+download with `--output` remains streamed and is not subject to that limit.
+
+Authorization, Proxy-Authorization, Cookie, Set-Cookie and names listed in the
+workspace `config.json` `secret_headers` array are redacted in verbose and
+JSON header metadata. Response bodies and script logs are not redacted; script
+source can print its own sensitive values.

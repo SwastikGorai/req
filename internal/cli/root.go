@@ -102,6 +102,10 @@ Send flags:
   --no-follow               return 3xx responses instead of following them
   --insecure                skip TLS certificate verification
   --fail                    exit 4 when the response status is >= 400
+  --output PATH             atomically save the response body to PATH
+  --raw                     keep response bytes unchanged (no terminal JSON pretty-print)
+  --verbose                 print response headers to stderr (sensitive values redacted)
+  --output-format json      emit one versioned response envelope; --raw conflicts
 
   req collection create NAME                     create an empty collection
   req collection list                            list collections as NAME<TAB>ID

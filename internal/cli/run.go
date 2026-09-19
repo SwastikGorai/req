@@ -49,6 +49,10 @@ func runRun(ctx context.Context, inv invocation, stdout, stderr io.Writer) int {
 	}
 	parsed.pol.Variables = scope
 	parsed.pol.BodyBase = ws.Root()
+	if err := prepareOutput(&parsed.pol.Output, stdout, ws); err != nil {
+		fmt.Fprintf(stderr, "req: %v\n", err)
+		return usageOrStorage(err)
+	}
 	if parsed.persistVars {
 		convert := func(src map[string]variables.Change) map[string]store.VariableChange {
 			if len(src) == 0 {
@@ -194,6 +198,25 @@ func parseRunArgs(args []string) (runArgs, error) {
 			parsed.pol.InsecureTLS = true
 		case "--fail":
 			parsed.pol.FailOnHTTPError = true
+		case "--output":
+			v, err := value(&i, "--output")
+			if err != nil {
+				return runArgs{}, err
+			}
+			if v == "" {
+				return runArgs{}, errors.New("--output requires a non-empty path")
+			}
+			parsed.pol.Output.OutputPath = v
+		case "--raw":
+			parsed.pol.Output.Raw = true
+		case "--verbose":
+			parsed.pol.Output.Verbose = true
+		case "--output-format":
+			v, err := value(&i, "--output-format")
+			if err != nil {
+				return runArgs{}, err
+			}
+			parsed.pol.Output.Format = v
 		default:
 			if handled, err := parsed.variables.parse(args, &i); handled {
 				if err != nil {
@@ -213,5 +236,8 @@ func parseRunArgs(args []string) (runArgs, error) {
 	parsed.path = positional[0]
 	parsed.pol.FollowRedirects = !noFollow
 	parsed.ov.Auth = parsed.variables.auth
+	if err := parsed.pol.Output.Validate(); err != nil {
+		return runArgs{}, err
+	}
 	return parsed, parsed.variables.validate()
 }

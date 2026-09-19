@@ -1,7 +1,9 @@
 package execution
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -9,6 +11,7 @@ import (
 	"time"
 
 	"req/internal/model"
+	"req/internal/output"
 	"req/internal/scripting"
 )
 
@@ -96,20 +99,29 @@ const (
 	phaseSkipped                     // a script called pm.execution.skipRequest
 )
 
+type phaseOutcome struct {
+	result       phaseResult
+	skipID       string
+	assertFailed bool
+	logs         []string
+	tests        []scripting.TestResult
+	errors       []string
+}
+
 // RunLifecycle runs pre scripts (unless disabled/absent), resolves and sends
 // the request, then runs post scripts and optionally persists eligible variable
 // changes, choosing exit codes per the contract: cancellation 130 beats
 // persistence failure 7, which beats script failure 5, failed assertions 6,
-// transport failure 3 and FailOnHTTPError 4. Pre
-// scripts run against the execution copy before ResolveRequest, so a
-// pre-script failure stops everything before variables resolve or anything
-// is sent. With no scripts to run (or --no-scripts) the body streams exactly
-// like Execute; otherwise it is buffered up to MaxScriptBodyBytes so post
-// scripts can be run first.
+// transport failure 3 and FailOnHTTPError 4. Pre scripts run against the
+// execution copy before ResolveRequest, so a pre-script failure stops
+// everything before variables resolve or anything is sent. With no scripts to
+// run (or --no-scripts) the body streams exactly like Execute; otherwise it is
+// buffered up to MaxScriptBodyBytes so post scripts can be run first.
 func RunLifecycle(ctx context.Context, saved model.Request, ov Overrides, pol Policy, sp ScriptPolicy, pre, post []model.Script, stdout, stderr io.Writer) int {
 	if saved.Import.Blocked() {
-		fmt.Fprintf(stderr, "req: imported request is blocked: %s\n", strings.Join(saved.Import.Unsupported, "; "))
-		return codeUsage
+		message := fmt.Sprintf("imported request is blocked: %s", strings.Join(saved.Import.Unsupported, "; "))
+		fmt.Fprintf(stderr, "req: %s\n", message)
+		return finishLifecycle(ctx, pol.Output, output.Result{Errors: []string{message}}, codeUsage, stdout, stderr)
 	}
 	if sp.Disabled {
 		pre, post = nil, nil
@@ -118,10 +130,12 @@ func RunLifecycle(ctx context.Context, saved model.Request, ov Overrides, pol Po
 		outgoing, err := Prepare(saved, ov, pol)
 		if err != nil {
 			fmt.Fprintf(stderr, "req: %v\n", err)
-			return codeUsage
+			return finishLifecycle(ctx, pol.Output, output.Result{Errors: []string{err.Error()}}, codeUsage, stdout, stderr)
 		}
-		code := Execute(ctx, outgoing, stdout, stderr)
-		return persistResult(ctx, sp, stderr, code, code == codeSuccess || code == codeHTTPFail)
+		state := executeResult(ctx, outgoing, stdout, stderr)
+		eligible := state.code == codeSuccess || state.code == codeHTTPFail
+		state.code = persistResult(ctx, sp, stderr, state.code, eligible, &state.result)
+		return finishResult(ctx, outgoing, state, stdout, stderr)
 	}
 
 	// One engine per execution: VM global state is shared between the
@@ -138,51 +152,71 @@ func RunLifecycle(ctx context.Context, saved model.Request, ov Overrides, pol Po
 		timeout = DefaultScriptTimeout
 	}
 
-	res, skipID, assertFailed := runPhase(ctx, eng, pre, timeout, stderr)
-	switch res {
-	case phaseCanceled:
-		return codeCanceled
-	case phaseFailed:
-		return codeScript
-	case phaseSkipped:
-		fmt.Fprintf(stderr, "req: skipped by script %s\n", skipID)
-		return codeSuccess
+	preOutcome := runPhase(ctx, eng, pre, timeout, stderr)
+	if preOutcome.result != phaseDone {
+		result := phaseOutput(preOutcome)
+		code := phaseCode(preOutcome)
+		if preOutcome.result == phaseSkipped {
+			fmt.Fprintf(stderr, "req: skipped by script %s\n", preOutcome.skipID)
+		}
+		return finishLifecycle(ctx, pol.Output, result, code, stdout, stderr)
 	}
 
 	outgoing, err := ResolveRequest(merged, pol)
 	if err != nil {
 		fmt.Fprintf(stderr, "req: %v\n", err)
-		return codeUsage
+		result := phaseOutput(preOutcome)
+		result.Errors = append(result.Errors, err.Error())
+		return finishLifecycle(ctx, pol.Output, result, codeUsage, stdout, stderr)
 	}
 
 	if len(post) == 0 {
-		code := Execute(ctx, outgoing, stdout, stderr)
-		return persistResult(ctx, sp, stderr, preferAssertions(code, assertFailed), code == codeSuccess || code == codeHTTPFail)
+		state := executeResult(ctx, outgoing, stdout, stderr)
+		addPhaseOutput(&state.result, preOutcome)
+		baseCode := state.code
+		state.code = preferAssertions(baseCode, preOutcome.assertFailed)
+		eligible := baseCode == codeSuccess || baseCode == codeHTTPFail
+		state.code = persistResult(ctx, sp, stderr, state.code, eligible, &state.result)
+		return finishResult(ctx, outgoing, state, stdout, stderr)
 	}
 
 	// The post phase needs the received response, so the body is buffered
 	// instead of streamed.
-	resp, code := dispatch(ctx, outgoing, stderr)
+	resp, code, dispatchErr := dispatch(ctx, outgoing, stderr)
+	state := runState{code: code}
+	if dispatchErr != nil {
+		state.result.Errors = append(state.result.Errors, dispatchErr.Error())
+	}
 	if resp == nil {
-		return preferAssertions(code, assertFailed)
+		addPhaseOutput(&state.result, preOutcome)
+		state.code = preferAssertions(state.code, preOutcome.assertFailed)
+		return finishResult(ctx, outgoing, state, stdout, stderr)
 	}
 	defer resp.Body.Close()
-	buf, err := io.ReadAll(io.LimitReader(resp.Body, MaxScriptBodyBytes+1))
+	state.result = responseResult(resp)
+	buf, err := readLimitedBody(resp.Body)
 	if err != nil {
-		if ctx.Err() != nil {
-			fmt.Fprintln(stderr, "req: canceled")
-			return codeCanceled
-		}
+		addBodyError(&state, ctx, err)
+		addPhaseOutput(&state.result, preOutcome)
+		state.code = preferAssertions(state.code, preOutcome.assertFailed)
 		fmt.Fprintf(stderr, "req: reading body: %v\n", err)
-		return preferAssertions(codeTransport, assertFailed)
+		if errors.Is(err, errBodyLimit) {
+			fmt.Fprintln(stderr, "req: response body exceeds the 10 MiB script buffer limit; post-response scripts were not run")
+		}
+		return finishResult(ctx, outgoing, state, stdout, stderr)
 	}
-	if len(buf) > MaxScriptBodyBytes {
-		fmt.Fprintf(stderr, "req: response body exceeds the 10 MiB script buffer limit; post-response scripts were not run\n")
-		return codeScript
-	}
-	if _, err := stdout.Write(buf); err != nil {
-		fmt.Fprintf(stderr, "req: writing body: %v\n", err)
-		return preferAssertions(codeTransport, assertFailed)
+	state.result.Body, state.result.HasBody = buf, true
+	if outgoing.Output.OutputPath != "" {
+		if err := output.WriteFileAtomic(ctx, outgoing.Output.OutputPath, bytes.NewReader(buf)); err != nil {
+			fmt.Fprintf(stderr, "req: writing output: %v\n", err)
+			addBodyError(&state, ctx, err)
+			state.result.Body = nil
+			state.result.HasBody = false
+		} else {
+			state.result.Body = nil
+			state.result.HasBody = false
+			state.result.BodyPath = outgoing.Output.OutputPath
+		}
 	}
 
 	// The read-only post view: the resolved outgoing request, with the body
@@ -203,49 +237,95 @@ func RunLifecycle(ctx context.Context, saved model.Request, ov Overrides, pol Po
 		Body:    buf,
 	})
 
-	res, skipID, postFailed := runPhase(ctx, eng, post, timeout, stderr)
-	assertFailed = assertFailed || postFailed
-	switch res {
+	postOutcome := runPhase(ctx, eng, post, timeout, stderr)
+	addPhaseOutput(&state.result, preOutcome)
+	addPhaseOutput(&state.result, postOutcome)
+	state.code = mergeExitCode(state.code, phaseCode(postOutcome))
+	if postOutcome.result == phaseSkipped {
+		state.result.Skipped = true
+		state.result.Errors = append(state.result.Errors, "skipRequest is only allowed in pre-request scripts")
+		state.code = mergeExitCode(state.code, codeScript)
+		fmt.Fprintf(stderr, "req: script %s failed: skipRequest is only allowed in pre-request scripts\n", postOutcome.skipID)
+	}
+	if postOutcome.result == phaseFailed || postOutcome.result == phaseCanceled {
+		return finishResult(ctx, outgoing, state, stdout, stderr)
+	}
+	if outgoing.FailOnHTTPError && resp.StatusCode >= http.StatusBadRequest {
+		state.code = mergeExitCode(state.code, codeHTTPFail)
+	}
+	state.code = preferAssertions(state.code, preOutcome.assertFailed || postOutcome.assertFailed)
+	eligible := postOutcome.result == phaseDone && (state.code == codeSuccess || state.code == codeHTTPFail || state.code == codeAssertions)
+	state.code = persistResult(ctx, sp, stderr, state.code, eligible, &state.result)
+	return finishResult(ctx, outgoing, state, stdout, stderr)
+}
+
+func phaseOutput(outcome phaseOutcome) output.Result {
+	return output.Result{
+		Logs:    append([]string(nil), outcome.logs...),
+		Tests:   append([]scripting.TestResult(nil), outcome.tests...),
+		Errors:  append([]string(nil), outcome.errors...),
+		Skipped: outcome.result == phaseSkipped,
+	}
+}
+
+func addPhaseOutput(result *output.Result, outcome phaseOutcome) {
+	result.Logs = append(result.Logs, outcome.logs...)
+	result.Tests = append(result.Tests, outcome.tests...)
+	result.Errors = append(result.Errors, outcome.errors...)
+	result.Skipped = result.Skipped || outcome.result == phaseSkipped
+}
+
+func phaseCode(outcome phaseOutcome) int {
+	switch outcome.result {
 	case phaseCanceled:
 		return codeCanceled
 	case phaseFailed:
 		return codeScript
 	case phaseSkipped:
-		fmt.Fprintf(stderr, "req: script %s failed: skipRequest is only allowed in pre-request scripts\n", skipID)
-		return codeScript
+		return codeSuccess
+	default:
+		return codeSuccess
 	}
-	if pol.FailOnHTTPError && resp.StatusCode >= http.StatusBadRequest {
-		return persistResult(ctx, sp, stderr, preferAssertions(codeHTTPFail, assertFailed), true)
-	}
-	return persistResult(ctx, sp, stderr, preferAssertions(codeSuccess, assertFailed), true)
 }
 
-func persistResult(ctx context.Context, sp ScriptPolicy, stderr io.Writer, code int, eligible bool) int {
+func finishLifecycle(ctx context.Context, opts output.Options, result output.Result, code int, stdout, stderr io.Writer) int {
+	if err := output.Render(result, opts, stdout, stderr); err != nil {
+		fmt.Fprintf(stderr, "req: writing output: %v\n", err)
+		code = mergeExitCode(code, codeTransport)
+	}
+	return code
+}
+
+func persistResult(ctx context.Context, sp ScriptPolicy, stderr io.Writer, code int, eligible bool, result *output.Result) int {
 	if !eligible || sp.Persist == nil {
 		return code
 	}
 	if ctx.Err() != nil {
 		fmt.Fprintln(stderr, "req: canceled")
-		return codeCanceled
+		result.Errors = append(result.Errors, "canceled")
+		return mergeExitCode(code, codeCanceled)
 	}
 	if err := sp.Persist(ctx); err != nil {
 		if ctx.Err() != nil {
 			fmt.Fprintln(stderr, "req: canceled")
-			return codeCanceled
+			result.Errors = append(result.Errors, "canceled")
+			return mergeExitCode(code, codeCanceled)
 		}
 		fmt.Fprintf(stderr, "req: persisting variables: %v\n", err)
-		return codeStorage
+		result.Errors = append(result.Errors, err.Error())
+		return mergeExitCode(code, codeStorage)
 	}
 	if ctx.Err() != nil {
 		fmt.Fprintln(stderr, "req: canceled")
-		return codeCanceled
+		result.Errors = append(result.Errors, "canceled")
+		return mergeExitCode(code, codeCanceled)
 	}
 	return code
 }
 
 // preferAssertions applies 6 > 3 > 4 > 0 from the exit-code contract: a
 // failed assertion outranks transport, --fail and success outcomes, but
-// never cancellation or usage failures.
+// never cancellation, usage or script failures.
 func preferAssertions(code int, assertFailed bool) int {
 	if assertFailed && (code == codeSuccess || code == codeTransport || code == codeHTTPFail) {
 		return codeAssertions
@@ -253,23 +333,24 @@ func preferAssertions(code int, assertFailed bool) int {
 	return code
 }
 
-// runPhase runs one script phase's entries in stored order on eng, each
-// under its own timeout deadline, printing every entry's logs and pm.test
-// outcomes prefixed with the entry ID. The first cancellation, runtime error
-// or skip stops the phase; in the skip case the returned ID names the entry
-// that asked. The third result reports whether any recorded test failed, so
-// the caller can apply the exit-code contract even when the phase succeeded.
-func runPhase(ctx context.Context, eng scripting.Engine, entries []model.Script, timeout time.Duration, stderr io.Writer) (res phaseResult, skipID string, assertFailed bool) {
+// runPhase runs one script phase's entries in stored order on eng, each under
+// its own timeout deadline, printing every entry's logs and pm.test outcomes
+// prefixed with the entry ID. The first cancellation, runtime error or skip
+// stops the phase; in the skip case the returned ID names the entry that asked.
+func runPhase(ctx context.Context, eng scripting.Engine, entries []model.Script, timeout time.Duration, stderr io.Writer) phaseOutcome {
+	outcome := phaseOutcome{result: phaseDone}
 	for _, entry := range entries {
 		scriptCtx, cancel := context.WithTimeout(ctx, timeout)
 		rep, err := eng.Run(scriptCtx, scripting.Source{Name: scriptSourceName(entry), Code: entry.Source})
 		cancel()
+		outcome.logs = append(outcome.logs, rep.Logs...)
+		outcome.tests = append(outcome.tests, rep.Tests...)
 		for _, line := range rep.Logs {
 			fmt.Fprintf(stderr, "%s: %s\n", entry.ID, line)
 		}
 		for _, tr := range rep.Tests {
 			if tr.Failed {
-				assertFailed = true
+				outcome.assertFailed = true
 				fmt.Fprintf(stderr, "%s: FAIL %s: %s\n", entry.ID, tr.Name, tr.Error)
 			} else {
 				fmt.Fprintf(stderr, "%s: PASS %s\n", entry.ID, tr.Name)
@@ -277,17 +358,24 @@ func runPhase(ctx context.Context, eng scripting.Engine, entries []model.Script,
 		}
 		if ctx.Err() != nil {
 			fmt.Fprintln(stderr, "req: canceled")
-			return phaseCanceled, "", assertFailed
+			outcome.result = phaseCanceled
+			outcome.errors = append(outcome.errors, "canceled")
+			return outcome
 		}
 		if err != nil {
-			fmt.Fprintf(stderr, "req: script %s failed: %v\n", entry.ID, err)
-			return phaseFailed, "", assertFailed
+			message := fmt.Sprintf("script %s failed: %v", entry.ID, err)
+			fmt.Fprintf(stderr, "req: %s\n", message)
+			outcome.result = phaseFailed
+			outcome.errors = append(outcome.errors, message)
+			return outcome
 		}
 		if rep.Skipped {
-			return phaseSkipped, entry.ID, assertFailed
+			outcome.result = phaseSkipped
+			outcome.skipID = entry.ID
+			return outcome
 		}
 	}
-	return phaseDone, "", assertFailed
+	return outcome
 }
 
 func scriptSourceName(entry model.Script) string {

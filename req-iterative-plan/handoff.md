@@ -1,10 +1,41 @@
-# Current handoff — Phase 17
+# Current handoff — Phase 18
 
-- **Status:** Phases 0–17 are complete and verified. Phase 18 (structured output and downloads) is next; integrated acceptance and final delivery remain.
-- **Repository:** `D:\Projects\Work\M\GoPM`, branch `main`, baseline commit `53a3189` (`Phase 16: cURL export`). Phase 17 changes are intentionally uncommitted; no remote action was performed. This corrects the stale Phase 16 handoff, which pointed at the Phase 15 commit and called the Phase 16 work uncommitted.
-- **Implementation:** `req run --persist-vars` attaches one execution callback that converts only dirty `pm.environment` and `pm.collectionVariables` operations into revision-checked store changes. `pm.variables`, `--var`, and direct `req send` never persist. Environment writes require `--env`. `RunLifecycle` permits persistence only for successful, assertion-failed or HTTP-status-failed responses; runtime, transport, body-limit, cancellation and skip outcomes stop it. Persistence failures return 7, with cancellation still taking precedence.
-- **Storage:** `Workspace.PersistVariables` reuses the existing mutation lock, exact content revisions and atomic replacement. When both files are dirty, `.req/recovery/variables-journal.json` records relative target paths and before/after bytes. `Init`, `Discover` and `Open` remove all-before/all-after journals, roll mixed before/after pairs back safely, and return an actionable `ErrRecovery` storage error for unknown target bytes. No database or generic transaction layer was added.
-- **Changed files:** `internal/variables/scope.go` and its test, `internal/scripting/bindings.go`, `internal/store/variables.go`, `internal/store/variables_test.go`, `internal/store/errors.go`, `internal/store/workspace.go`, `internal/cli/variables.go`, `internal/cli/run.go`, `internal/cli/root.go`, `internal/cli/workspace.go`, `internal/cli/persist_vars_test.go`, `internal/execution/lifecycle.go`, `internal/execution/run.go`, `internal/execution/persistence_test.go`, `docs/compatibility.md`, `docs/decisions.md`, and the Phase 17 trackers.
-- **Verification:** Focused `rtk go test ./internal/variables ./internal/scripting ./internal/store ./internal/execution ./internal/cli -count=1` passed. Named tests `TestPersistTokenAcrossProcesses`, `TestNoPersistByDefault`, `TestPersistEligibility`, `TestPersistFailurePrecedence`, `TestPersistCancellationPrecedence`, `TestRecoveryAcquiresWorkspaceLock`, and `TestJournalRecovery` passed. Full `rtk go test -count=1 -timeout=180s ./...`, race `rtk go test -race -count=1 -timeout=240s ./...`, `rtk go vet ./...`, `rtk gofmt -l internal cmd`, and `rtk git diff --check` all passed.
-- **Assumptions and limits:** A dirty operation is the last setter/unsetter operation for that key; setting JSON null remains distinct from unsetting. Only changed layers require a matching revision, so an environment-only run does not conflict with unrelated collection edits. Journal recovery rolls a mixed pair back to the recorded before bytes and blocks if either target has unrecognized bytes. Saved relative files still execute from the workspace root; cURL export retains literal spelling and must run from the corresponding base directory.
-- **Next action:** Begin [phase-18-output.md](phases/phase-18-output.md), task 1.
+- **Status:** Phases 0–18 are complete and verified. Phase 19 (integrated
+  acceptance and final delivery) remains.
+- **Repository:** `D:\Projects\Work\M\GoPM`, branch `main`, baseline commit
+  `4fe2efc` (`Phase 17: persist extracted variables safely`). Phase 18 changes
+  are intentionally uncommitted; no remote action was performed. This corrects
+  the stale handoff that pointed at the Phase 15/16 baseline.
+- **Implementation:** `req send` and `req run` share `--output PATH`, `--raw`,
+  `--verbose` and `--output-format json`. Default and raw paths preserve
+  streaming body output; terminal-only valid JSON is pretty-printed when raw is
+  absent. JSON emits one version-1 envelope with status, ordered headers,
+  duration, body text/base64, tests, logs, errors and skipped state. Output
+  files use same-directory temporary files and replacement, and JSON references
+  the literal output path instead of duplicating bytes.
+- **Lifecycle:** Script and JSON body reads stop at 10 MiB without running post
+  scripts on partial data. A no-script output-file download remains unbounded.
+  Script reports and persistence errors aggregate into the envelope, while exit
+  precedence remains 130 > 7 > 5 > 6 > 3 > 4. Header metadata redacts
+  Authorization, Proxy-Authorization, Cookie, Set-Cookie and configured
+  `config.json` `secret_headers`; bodies and script logs are not redacted.
+- **Changed files:** `internal/output/render.go` and tests,
+  `internal/store/config.go`, `internal/httpclient/client.go`,
+  `internal/scripting/engine.go`, `internal/execution/{execution,prepare,run,lifecycle}.go`
+  and tests, `internal/cli/{output,send,run,root}.go` and tests,
+  `docs/{compatibility,decisions}.md`, and the Phase 18 trackers.
+- **Verification:** Focused `rtk go test -count=1 ./internal/output ./internal/execution ./internal/cli ./internal/store ./internal/httpclient ./internal/scripting` passed (253 tests across 6 packages). Full `rtk go test -count=1 -timeout=180s ./...` passed (294 tests across 11 packages). Race `rtk go test -race -count=1 -timeout=240s ./...` passed (294 tests across 11 packages). `rtk go vet ./...`, `rtk gofmt -l internal cmd`, and `rtk git diff --check` all passed.
+- **Named output tests:** `TestJSONSingleEnvelope`,
+  `TestLargeBodyScriptFailure`, `TestRawDownloadStreaming`,
+  `TestBinaryBase64Envelope`, `TestTerminalOnlyPrettyJSON`,
+  `TestOutputPathReference`, `TestOutputPathFailureLeavesDestination`,
+  `TestHeaderRedaction`, `TestDirectJSONSendBlocksOnRecoveryError`, and the
+  JSON script diagnostics assertion in `TestRunAssertions` pass.
+- **Assumptions and limits:** Output paths are interpreted by the CLI working
+  directory. Native saved relative attachment files still execute relative to
+  the workspace root; cURL export retains literal spelling and must run from
+  the corresponding base, and imported source references may need remapping as
+  already documented. JSON/output files intentionally do not promise body or
+  script-log redaction.
+- **Next action:** Begin [phase-19-delivery.md](phases/phase-19-delivery.md),
+  task 1.

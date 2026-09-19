@@ -189,6 +189,7 @@ func ResolveRequest(m *scripting.ExecRequest, pol Policy) (Outgoing, error) {
 		InsecureTLS:     pol.InsecureTLS,
 		FollowRedirects: pol.FollowRedirects,
 		FailOnHTTPError: pol.FailOnHTTPError,
+		Output:          pol.Output,
 	}, nil
 }
 

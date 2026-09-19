@@ -15,9 +15,9 @@ type Source struct {
 
 // TestResult is one named pm.test outcome.
 type TestResult struct {
-	Name   string
-	Failed bool
-	Error  string // the thrown error's message, first line only, when Failed
+	Name   string `json:"name"`
+	Failed bool   `json:"failed"`
+	Error  string `json:"error,omitempty"` // the thrown error's message, first line only, when Failed
 }
 
 // Report is what a completed run hands back.

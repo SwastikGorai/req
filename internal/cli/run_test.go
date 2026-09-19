@@ -2,6 +2,8 @@ package cli
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -299,6 +301,21 @@ func TestRunAssertions(t *testing.T) {
 	}
 	if !strings.Contains(stderr, "post: PASS ok status") || !strings.Contains(stderr, "post: PASS body ok") {
 		t.Errorf("stderr = %q, want a PASS line per passing test", stderr)
+	}
+	var jsonStdout, jsonStderr bytes.Buffer
+	if code := Run(context.Background(), []string{"run", "API/Checked", "--output-format", "json"}, &jsonStdout, &jsonStderr); code != exitSuccess {
+		t.Fatalf("JSON run exit = %d, stderr=%q", code, jsonStderr.String())
+	}
+	var envelope struct {
+		Body  string           `json:"body"`
+		Logs  []string         `json:"logs"`
+		Tests []map[string]any `json:"tests"`
+	}
+	if err := json.Unmarshal(jsonStdout.Bytes(), &envelope); err != nil {
+		t.Fatalf("JSON run stdout = %q: %v", jsonStdout.String(), err)
+	}
+	if envelope.Body != `{"ok":true}` || len(envelope.Logs) != 0 || len(envelope.Tests) != 2 || strings.Contains(jsonStdout.String(), "post: PASS") {
+		t.Fatalf("JSON run envelope = %#v, stdout=%q", envelope, jsonStdout.String())
 	}
 
 	// A failed test does not stop later tests in the entry; exit 6.

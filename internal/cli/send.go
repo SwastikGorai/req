@@ -12,6 +12,7 @@ import (
 
 	"req/internal/execution"
 	"req/internal/model"
+	"req/internal/output"
 	"req/internal/store"
 )
 
@@ -27,6 +28,7 @@ type sendOptions struct {
 	insecure  bool
 	noFollow  bool
 	fail      bool
+	output    output.Options
 }
 
 // httpToken matches the RFC 9110 token character set, used for methods and
@@ -45,12 +47,24 @@ func runSend(ctx context.Context, inv invocation, stdout, stderr io.Writer) int 
 	// A direct send has nothing saved: every value arrives via the
 	// overrides and Prepare only validates what parsing already checked.
 	var ws *store.Workspace
-	if opts.variables.env != "" {
+	if opts.variables.env != "" || inv.workspace != "" {
 		var code int
 		ws, code = openWorkspace(inv, stderr)
 		if ws == nil {
 			return code
 		}
+	}
+	if ws == nil && (opts.output.Verbose || opts.output.JSON()) {
+		var discoverErr error
+		ws, discoverErr = store.Discover("")
+		if discoverErr != nil && !errors.Is(discoverErr, store.ErrNoWorkspace) {
+			fmt.Fprintf(stderr, "req: %v\n", discoverErr)
+			return usageOrStorage(discoverErr)
+		}
+	}
+	if err := prepareOutput(&opts.output, stdout, ws); err != nil {
+		fmt.Fprintf(stderr, "req: %v\n", err)
+		return usageOrStorage(err)
 	}
 	scope, err := opts.variables.scope(ctx, ws, nil)
 	if err != nil {
@@ -87,6 +101,7 @@ func sendPolicy(opts *sendOptions) execution.Policy {
 		InsecureTLS:     opts.insecure,
 		FollowRedirects: !opts.noFollow,
 		FailOnHTTPError: opts.fail,
+		Output:          opts.output,
 	}
 }
 
@@ -170,6 +185,25 @@ func parseSendArgs(args []string) (*sendOptions, error) {
 			opts.noFollow = true
 		case "--fail":
 			opts.fail = true
+		case "--output":
+			v, err := value(&i, "--output")
+			if err != nil {
+				return nil, err
+			}
+			if v == "" {
+				return nil, errors.New("--output requires a non-empty path")
+			}
+			opts.output.OutputPath = v
+		case "--raw":
+			opts.output.Raw = true
+		case "--verbose":
+			opts.output.Verbose = true
+		case "--output-format":
+			v, err := value(&i, "--output-format")
+			if err != nil {
+				return nil, err
+			}
+			opts.output.Format = v
 		default:
 			if handled, err := opts.variables.parse(args, &i); handled {
 				if err != nil {
@@ -216,6 +250,9 @@ func parseSendArgs(args []string) (*sendOptions, error) {
 	}
 	if u, err := url.Parse(opts.rawURL); !strings.Contains(opts.rawURL, "{{") && (err != nil || (u.Scheme != "http" && u.Scheme != "https")) {
 		return nil, fmt.Errorf("URL must be absolute http or https, got %q", opts.rawURL)
+	}
+	if err := opts.output.Validate(); err != nil {
+		return nil, err
 	}
 	return opts, opts.variables.validate()
 }

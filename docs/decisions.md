@@ -2,6 +2,22 @@
 
 Consequential implementation choices, newest phase first. Routine reversible choices stay in code; cross-phase consequences live here and in handoff.md.
 
+## Phase 18 — Structured output and downloads
+
+- **One small output seam serves send and run.** Existing execution entry
+  points retain their signatures; an output policy carries format, terminal,
+  raw, verbose and destination choices, while lifecycle aggregation adds script
+  tests/logs/errors before one envelope is rendered.
+- **Streaming remains the default.** JSON and terminal pretty-printing buffer
+  only the response needed by their contract. A no-script `--output` path uses
+  the standard-library reader/writer path without the 10 MiB script buffer, and
+  atomic replacement prevents a partial destination on body or transport
+  failure.
+- **Metadata redaction is deliberately narrow.** Built-in credential/cookie
+  response headers and `config.json` `secret_headers` names are redacted
+  case-insensitively; arbitrary response bodies and script logs are left
+  untouched because they are not reliably classifiable.
+
 ## Phase 17 — Persisted script variables
 
 - **Persistence is an opt-in saved-run callback.** `req run --persist-vars`
