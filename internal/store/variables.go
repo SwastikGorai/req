@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"req/internal/model"
+	"github.com/SwastikGorai/req/internal/model"
 )
 
 const variableJournalName = "variables-journal.json"

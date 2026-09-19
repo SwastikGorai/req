@@ -17,8 +17,8 @@ import (
 	"sort"
 	"strings"
 
-	"req/internal/model"
-	"req/internal/store"
+	"github.com/SwastikGorai/req/internal/model"
+	"github.com/SwastikGorai/req/internal/store"
 )
 
 // Options controls a Postman import. Source is a display/provenance path and

@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"req/internal/store"
+	"github.com/SwastikGorai/req/internal/store"
 )
 
 func postmanScriptFixture(t *testing.T, name string) []byte {

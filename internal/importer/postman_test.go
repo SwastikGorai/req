@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"req/internal/execution"
-	"req/internal/model"
-	"req/internal/store"
+	"github.com/SwastikGorai/req/internal/execution"
+	"github.com/SwastikGorai/req/internal/model"
+	"github.com/SwastikGorai/req/internal/store"
 )
 
 func fixtureBytes(t *testing.T, name string) []byte {

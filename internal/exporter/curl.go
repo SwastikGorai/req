@@ -8,8 +8,8 @@ import (
 	"sort"
 	"strings"
 
-	"req/internal/model"
-	"req/internal/variables"
+	"github.com/SwastikGorai/req/internal/model"
+	"github.com/SwastikGorai/req/internal/variables"
 )
 
 // Options controls cURL export. Values remain exactly as saved unless

@@ -11,8 +11,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"req/internal/model"
-	"req/internal/store"
+	"github.com/SwastikGorai/req/internal/model"
+	"github.com/SwastikGorai/req/internal/store"
 )
 
 // runEditor launches the editor argv without a shell and waits; injectable

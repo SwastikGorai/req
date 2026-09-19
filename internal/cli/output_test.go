@@ -13,8 +13,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"req/internal/execution"
-	"req/internal/store"
+	"github.com/SwastikGorai/req/internal/execution"
+	"github.com/SwastikGorai/req/internal/store"
 )
 
 func TestJSONSingleEnvelope(t *testing.T) {

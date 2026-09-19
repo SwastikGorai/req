@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"req/internal/store"
+	"github.com/SwastikGorai/req/internal/store"
 )
 
 // openWorkspace resolves the workspace from an explicit --workspace path or,

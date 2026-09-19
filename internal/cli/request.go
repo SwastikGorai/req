@@ -7,8 +7,8 @@ import (
 	"io"
 	"strings"
 
-	"req/internal/model"
-	"req/internal/store"
+	"github.com/SwastikGorai/req/internal/model"
+	"github.com/SwastikGorai/req/internal/store"
 )
 
 const requestUsage = `usage: req request create PATH --method METHOD --url URL [flags]

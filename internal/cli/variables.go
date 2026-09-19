@@ -3,9 +3,9 @@ package cli
 import (
 	"context"
 	"fmt"
-	"req/internal/model"
-	"req/internal/store"
-	"req/internal/variables"
+	"github.com/SwastikGorai/req/internal/model"
+	"github.com/SwastikGorai/req/internal/store"
+	"github.com/SwastikGorai/req/internal/variables"
 	"strings"
 )
 

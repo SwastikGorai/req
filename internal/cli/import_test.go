@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"req/internal/store"
+	"github.com/SwastikGorai/req/internal/store"
 )
 
 func TestPostmanImportCLI(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"req/internal/store"
+	"github.com/SwastikGorai/req/internal/store"
 )
 
 func TestInitCreatesWorkspace(t *testing.T) {

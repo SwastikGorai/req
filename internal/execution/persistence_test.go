@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"req/internal/model"
+	"github.com/SwastikGorai/req/internal/model"
 )
 
 func TestPersistFailurePrecedence(t *testing.T) {

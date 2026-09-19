@@ -8,8 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"req/internal/model"
-	"req/internal/store"
+	"github.com/SwastikGorai/req/internal/model"
+	"github.com/SwastikGorai/req/internal/store"
 )
 
 func TestFolderDeletePreservesChangesDuringConfirmation(t *testing.T) {

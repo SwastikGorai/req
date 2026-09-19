@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"req/internal/store"
+	"github.com/SwastikGorai/req/internal/store"
 )
 
 func TestCurlQuotedLiteral(t *testing.T) {

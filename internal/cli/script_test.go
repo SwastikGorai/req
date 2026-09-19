@@ -13,8 +13,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"req/internal/model"
-	"req/internal/store"
+	"github.com/SwastikGorai/req/internal/model"
+	"github.com/SwastikGorai/req/internal/store"
 )
 
 // setScripts stores scripts on the node at path, for tests that prepare

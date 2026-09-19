@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"req/internal/model"
+	"github.com/SwastikGorai/req/internal/model"
 )
 
 func TestPersistVariables(t *testing.T) {

@@ -13,7 +13,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"req/internal/model"
+	"github.com/SwastikGorai/req/internal/model"
 )
 
 // recordedRequest is what a test server hands back to the test goroutine.

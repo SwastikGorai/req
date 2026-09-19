@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"req/internal/model"
+	"github.com/SwastikGorai/req/internal/model"
 )
 
 // storedCollection pairs a loaded collection with the revision of its file.

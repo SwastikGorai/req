@@ -4,10 +4,10 @@
 package execution
 
 import (
-	"req/internal/httpclient"
-	"req/internal/model"
-	"req/internal/output"
-	"req/internal/variables"
+	"github.com/SwastikGorai/req/internal/httpclient"
+	"github.com/SwastikGorai/req/internal/model"
+	"github.com/SwastikGorai/req/internal/output"
+	"github.com/SwastikGorai/req/internal/variables"
 	"time"
 )
 

@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"req/internal/scripting"
+	"github.com/SwastikGorai/req/internal/scripting"
 )
 
 func TestJSONSingleEnvelope(t *testing.T) {

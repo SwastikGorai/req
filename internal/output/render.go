@@ -15,7 +15,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"req/internal/scripting"
+	"github.com/SwastikGorai/req/internal/scripting"
 )
 
 const envelopeVersion = 1

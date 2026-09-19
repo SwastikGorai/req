@@ -4,8 +4,8 @@ import (
 	"io"
 	"os"
 
-	"req/internal/output"
-	"req/internal/store"
+	"github.com/SwastikGorai/req/internal/output"
+	"github.com/SwastikGorai/req/internal/store"
 )
 
 // stdoutIsTerminal is injectable so output behavior can be tested without a

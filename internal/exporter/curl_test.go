@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"req/internal/importer"
-	"req/internal/model"
-	"req/internal/variables"
+	"github.com/SwastikGorai/req/internal/importer"
+	"github.com/SwastikGorai/req/internal/model"
+	"github.com/SwastikGorai/req/internal/variables"
 )
 
 func TestCurlRoundTrip(t *testing.T) {

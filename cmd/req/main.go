@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/signal"
 
-	"req/internal/cli"
+	"github.com/SwastikGorai/req/internal/cli"
 )
 
 func main() {

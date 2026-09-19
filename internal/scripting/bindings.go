@@ -10,8 +10,8 @@ import (
 
 	"github.com/dop251/goja"
 
-	"req/internal/model"
-	"req/internal/variables"
+	"github.com/SwastikGorai/req/internal/model"
+	"github.com/SwastikGorai/req/internal/variables"
 )
 
 // ExecRequest is the execution copy of a request shared with the execution

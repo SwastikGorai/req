@@ -13,9 +13,9 @@ import (
 
 	"github.com/dop251/goja"
 
-	"req/internal/httpclient"
-	"req/internal/model"
-	"req/internal/variables"
+	"github.com/SwastikGorai/req/internal/httpclient"
+	"github.com/SwastikGorai/req/internal/model"
+	"github.com/SwastikGorai/req/internal/variables"
 )
 
 const (

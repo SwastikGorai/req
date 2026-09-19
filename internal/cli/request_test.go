@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"req/internal/model"
+	"github.com/SwastikGorai/req/internal/model"
 )
 
 func TestRequestShowList(t *testing.T) {

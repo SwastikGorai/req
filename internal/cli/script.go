@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"req/internal/model"
+	"github.com/SwastikGorai/req/internal/model"
 )
 
 // scriptUsage is the usage line of the script command family.

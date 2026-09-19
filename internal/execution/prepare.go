@@ -7,9 +7,9 @@ import (
 	"regexp"
 	"strings"
 
-	"req/internal/httpclient"
-	"req/internal/model"
-	"req/internal/scripting"
+	"github.com/SwastikGorai/req/internal/httpclient"
+	"github.com/SwastikGorai/req/internal/model"
+	"github.com/SwastikGorai/req/internal/scripting"
 )
 
 // httpToken matches the RFC 9110 token character set, used for HTTP methods.

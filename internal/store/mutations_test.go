@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"req/internal/model"
+	"github.com/SwastikGorai/req/internal/model"
 )
 
 func TestCreateCollectionDuplicateName(t *testing.T) {

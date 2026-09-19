@@ -7,10 +7,10 @@ import (
 	"io"
 	"strings"
 
-	"req/internal/execution"
-	"req/internal/exporter"
-	"req/internal/model"
-	"req/internal/variables"
+	"github.com/SwastikGorai/req/internal/execution"
+	"github.com/SwastikGorai/req/internal/exporter"
+	"github.com/SwastikGorai/req/internal/model"
+	"github.com/SwastikGorai/req/internal/variables"
 )
 
 const exportUsage = `usage: req export curl PATH [--resolve --env NAME] [--strict]

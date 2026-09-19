@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"req/internal/execution"
-	"req/internal/store"
-	"req/internal/variables"
+	"github.com/SwastikGorai/req/internal/execution"
+	"github.com/SwastikGorai/req/internal/store"
+	"github.com/SwastikGorai/req/internal/variables"
 )
 
 // runRun implements `req run PATH [flags]`: resolve the saved request, apply

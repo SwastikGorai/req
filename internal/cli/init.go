@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"req/internal/store"
+	"github.com/SwastikGorai/req/internal/store"
 )
 
 // invocation is one parsed command line: the subcommand with its own

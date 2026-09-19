@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"req/internal/model"
+	"github.com/SwastikGorai/req/internal/model"
 )
 
 func TestAcceptanceNativeLogin(t *testing.T) {

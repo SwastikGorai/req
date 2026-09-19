@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"req/internal/execution"
-	"req/internal/model"
-	"req/internal/output"
-	"req/internal/store"
+	"github.com/SwastikGorai/req/internal/execution"
+	"github.com/SwastikGorai/req/internal/model"
+	"github.com/SwastikGorai/req/internal/output"
+	"github.com/SwastikGorai/req/internal/store"
 )
 
 // sendOptions is the validated configuration of one direct request.

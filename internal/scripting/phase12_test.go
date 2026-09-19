@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"req/internal/variables"
+	"github.com/SwastikGorai/req/internal/variables"
 )
 
 func TestPromiseAuthBeforeMain(t *testing.T) {

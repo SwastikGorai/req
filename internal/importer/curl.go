@@ -7,8 +7,8 @@ import (
 	"net/url"
 	"strings"
 
-	"req/internal/model"
-	"req/internal/store"
+	"github.com/SwastikGorai/req/internal/model"
+	"github.com/SwastikGorai/req/internal/store"
 )
 
 // CurlResult is one normalized cURL request and any non-fatal conversion

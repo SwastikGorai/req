@@ -3,9 +3,9 @@ package store
 import (
 	"context"
 	"errors"
+	"github.com/SwastikGorai/req/internal/model"
 	"os"
 	"path/filepath"
-	"req/internal/model"
 	"testing"
 )
 

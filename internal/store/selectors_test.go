@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"req/internal/model"
+	"github.com/SwastikGorai/req/internal/model"
 )
 
 func TestSplitPath(t *testing.T) {

@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"req/internal/importer"
-	"req/internal/store"
+	"github.com/SwastikGorai/req/internal/importer"
+	"github.com/SwastikGorai/req/internal/store"
 )
 
 const importUsage = `usage: req import postman FILE [--name NAME] [--strict]

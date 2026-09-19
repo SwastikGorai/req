@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/SwastikGorai/req/internal/model"
+	"github.com/SwastikGorai/req/internal/store"
 	"io"
-	"req/internal/model"
-	"req/internal/store"
 )
 
 func runEnv(ctx context.Context, inv invocation, stdout, stderr io.Writer) int {

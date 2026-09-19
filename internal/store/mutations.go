@@ -8,7 +8,7 @@ import (
 	"os"
 	"slices"
 
-	"req/internal/model"
+	"github.com/SwastikGorai/req/internal/model"
 )
 
 // CreateFolder creates the folder at path (at least two segments: the

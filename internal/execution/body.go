@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"req/internal/model"
-	"req/internal/scripting"
+	"github.com/SwastikGorai/req/internal/model"
+	"github.com/SwastikGorai/req/internal/scripting"
 )
 
 // resolveBody validates and resolves m.Body in place: m is the execution

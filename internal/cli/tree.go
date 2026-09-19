@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"req/internal/model"
+	"github.com/SwastikGorai/req/internal/model"
 )
 
 // runTree implements `req tree PATH`: the collection (or resolved folder) as

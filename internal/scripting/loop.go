@@ -11,8 +11,8 @@ import (
 
 	"github.com/dop251/goja"
 
-	"req/internal/httpclient"
-	"req/internal/variables"
+	"github.com/SwastikGorai/req/internal/httpclient"
+	"github.com/SwastikGorai/req/internal/variables"
 )
 
 // maxSpikeBody bounds what a script-bound request may read in this spike;

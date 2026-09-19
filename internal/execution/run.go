@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"time"
 
-	"req/internal/httpclient"
-	"req/internal/output"
+	"github.com/SwastikGorai/req/internal/httpclient"
+	"github.com/SwastikGorai/req/internal/output"
 )
 
 // Exit codes returned by Execute, matching the CLI's contract.

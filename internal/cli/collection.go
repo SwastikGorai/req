@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"req/internal/model"
+	"github.com/SwastikGorai/req/internal/model"
 )
 
 const collectionUsage = `usage: req collection create NAME

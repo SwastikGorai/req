@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"req/internal/model"
+	"github.com/SwastikGorai/req/internal/model"
 )
 
 // SplitPath splits a slash path into segments. Every segment must be a valid

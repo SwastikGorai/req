@@ -6,10 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/SwastikGorai/req/internal/model"
 	"io"
 	"os"
 	"path/filepath"
-	"req/internal/model"
 	"strings"
 )
 

@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"req/internal/variables"
+	"github.com/SwastikGorai/req/internal/variables"
 )
 
 func TestCallbackAuthBeforeMain(t *testing.T) {

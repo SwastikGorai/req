@@ -16,7 +16,7 @@ import (
 
 	"github.com/gofrs/flock"
 
-	"req/internal/model"
+	"github.com/SwastikGorai/req/internal/model"
 )
 
 // Revision is the opaque content hash of one stored file. LoadCollection

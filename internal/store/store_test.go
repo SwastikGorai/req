@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"req/internal/model"
+	"github.com/SwastikGorai/req/internal/model"
 )
 
 func newTestWorkspace(t *testing.T) *Workspace {

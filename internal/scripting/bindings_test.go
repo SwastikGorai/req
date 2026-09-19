@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"req/internal/model"
-	"req/internal/variables"
+	"github.com/SwastikGorai/req/internal/model"
+	"github.com/SwastikGorai/req/internal/variables"
 )
 
 func strp(s string) *string { return &s }

@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"req/internal/model"
-	"req/internal/output"
-	"req/internal/scripting"
+	"github.com/SwastikGorai/req/internal/model"
+	"github.com/SwastikGorai/req/internal/output"
+	"github.com/SwastikGorai/req/internal/scripting"
 )
 
 const (

@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"req/internal/model"
+	"github.com/SwastikGorai/req/internal/model"
 )
 
 const folderUsage = `usage: req folder create PATH [--parents]

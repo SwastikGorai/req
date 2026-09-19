@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"req/internal/model"
-	"req/internal/store"
+	"github.com/SwastikGorai/req/internal/model"
+	"github.com/SwastikGorai/req/internal/store"
 )
 
 func TestCurlExportCLI(t *testing.T) {

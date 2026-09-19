@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"req/internal/model"
+	"github.com/SwastikGorai/req/internal/model"
 )
 
 // parseBodyFlag is shared by send, run and request create. It stores file

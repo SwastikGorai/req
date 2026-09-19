@@ -1,7 +1,7 @@
 package execution
 
 import (
-	"req/internal/model"
+	"github.com/SwastikGorai/req/internal/model"
 	"testing"
 )
 

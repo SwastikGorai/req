@@ -15,7 +15,7 @@ import (
 	"strings"
 	"sync"
 
-	"req/internal/model"
+	"github.com/SwastikGorai/req/internal/model"
 )
 
 // Body describes replayable bytes and files without retaining open handles.
