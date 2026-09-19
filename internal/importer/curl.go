@@ -232,6 +232,12 @@ func (p *curlParser) longOption(tokens []string, i *int, arg string) error {
 			return err
 		}
 		return p.addForm(v)
+	case "--form-string":
+		v, err := value(name)
+		if err != nil {
+			return err
+		}
+		return p.addFormString(v)
 	case "--get":
 		return boolean(name, &p.get)
 	case "--location":
@@ -374,6 +380,19 @@ func (p *curlParser) addForm(value string) error {
 		}
 	}
 	p.forms = append(p.forms, field)
+	return nil
+}
+
+func (p *curlParser) addFormString(value string) error {
+	if err := p.setMode("form"); err != nil {
+		return err
+	}
+	name, formValue, ok := strings.Cut(value, "=")
+	if !ok || name == "" {
+		return fmt.Errorf("invalid form-string entry %q", value)
+	}
+	formValueCopy := formValue
+	p.forms = append(p.forms, model.MultipartField{Key: name, Value: &formValueCopy, Enabled: true})
 	return nil
 }
 

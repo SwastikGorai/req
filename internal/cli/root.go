@@ -62,6 +62,8 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return runScript(ctx, invocation{args: inv.args[1:], workspace: inv.workspace}, stdout, stderr)
 	case "import":
 		return runImport(ctx, invocation{args: inv.args[1:], workspace: inv.workspace}, stdout, stderr)
+	case "export":
+		return runExport(ctx, invocation{args: inv.args[1:], workspace: inv.workspace}, stdout, stderr)
 	case "help", "-h", "--help":
 		return printUsage(stdout, exitSuccess)
 	case "--version":
@@ -140,6 +142,10 @@ Send flags:
                                                  import a Postman environment
   req import curl --file FILE --save-as PATH [--strict]
                                                  import one cURL request
+  req export curl PATH [--resolve --env NAME] [--strict]
+                                                 print a POSIX-safe cURL command;
+                                                 --resolve substitutes values and
+                                                 may expose secrets
 
   req --version
   req help

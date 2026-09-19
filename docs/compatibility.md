@@ -64,3 +64,25 @@ URLs, active shell constructs and unsupported option combinations fail before
 the destination request is written. `--data @file` is retained with a warning
 because the native file reference cannot reproduce cURL's newline/NUL
 stripping; strict mode rejects that warning.
+
+## Phase 16 — cURL export
+
+`req export curl PATH` emits one POSIX-shell-safe command. Headers, URLs,
+inline bodies and credentials use single-quote escaping; disabled entries are
+omitted. Saved `{{placeholders}}` and body/form file references remain literal
+references by default and are never read. `--resolve --env NAME` is explicit
+because it substitutes collection/environment values and can expose secrets in
+stdout. The selected environment's disabled variables remain unresolved.
+
+Native saved relative body files execute relative to the workspace root.
+Export retains the literal saved spelling rather than copying or rebasing the
+file, so the emitted cURL command must run from the corresponding base
+directory. Imported source references may still need remapping before native
+execution, as documented for untrusted attachments.
+
+Enabled inherited or request scripts are never run during export. Lenient
+exports warn when scripts, blocked import behavior or another value cannot be
+represented; `--strict` rejects the export before writing the command. Native
+multipart text uses cURL's `--form-string` so leading `@` and semicolons stay
+literal; file fields remain `-F` references. cURL's default redirect behavior
+is represented with `-L` only when the saved request follows redirects.

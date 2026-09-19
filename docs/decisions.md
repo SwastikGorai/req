@@ -2,6 +2,30 @@
 
 Consequential implementation choices, newest phase first. Routine reversible choices stay in code; cross-phase consequences live here and in handoff.md.
 
+## Phase 16 — cURL export
+
+- **Export formats the saved definition, not an execution.** The exporter does
+  not run scripts or open attachments. The CLI supplies the effective inherited
+  auth and enabled script list only to report omissions; saved placeholders and
+  file references therefore remain recoverable by default.
+- **Resolution is opt-in and environment-scoped.** `--resolve --env NAME`
+  builds the existing variable scope and resolves every exported field. The
+  help text calls out secret exposure; unresolved/default output never consults
+  the process environment.
+- **Single-quote escaping is the shell boundary.** Each cURL argument is
+  emitted as a POSIX single-quoted token, including empty values and embedded
+  apostrophes. Native urlencoded query/body entries use the same escaping as
+  execution while preserving placeholder tokens.
+- **Strict export is no-write.** Warnings for scripts, blocked import metadata,
+  unsupported auth/body tags and invalid form/file representations return a
+  strict error before the CLI writes stdout. Literal multipart fields use
+  `--form-string`; the importer accepts that cURL flag so supported exports
+  round-trip without interpreting `@` as a file.
+- **File paths keep their native base spelling.** `req run` resolves relative
+  saved files from the workspace root; export does not copy or rebase them.
+  Users must run the emitted cURL command from that corresponding base, and
+  imported untrusted source references may need remapping first.
+
 ## Phase 15 — cURL command import
 
 - **Parsing is a small shell-free tokenizer, not a shell invocation.** It handles POSIX single/double quotes, escaped characters and backslash-newline continuations, then rejects active command separators, pipelines, redirections, substitutions, expansions, unknown flags and multiple URLs.

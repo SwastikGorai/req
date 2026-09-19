@@ -4,6 +4,8 @@
 
 ## Goal & Context
 
+Phases 0-16 are implemented and verified; Phase 17 is next.
+
 **What we’re building:** A local-first Go HTTP CLI with saved Postman-style collections/folders, environments, cURL import/export and a supported subset of Postman pre-request and post-response JavaScript, including asynchronous auxiliary requests.
 
 **Why:** Debug and reuse API requests from a terminal without needing a GUI or cloud account.
@@ -34,10 +36,15 @@
 | 13 | Postman collection and environment import | [x] Complete | Phase 12 | [phase-13-postman-data.md](phases/phase-13-postman-data.md) |
 | 14 | Imported Postman scripts | [x] Complete | Phase 13 | [phase-14-postman-scripts.md](phases/phase-14-postman-scripts.md) |
 | 15 | cURL command import | [x] Complete | Phase 14 | [phase-15-curl-import.md](phases/phase-15-curl-import.md) |
-| 16 | cURL export | [ ] Not started | Phase 15 | [phase-16-curl-export.md](phases/phase-16-curl-export.md) |
+| 16 | cURL export | [x] Complete | Phase 15 | [phase-16-curl-export.md](phases/phase-16-curl-export.md) |
 | 17 | Persist extracted variables safely | [ ] Not started | Phase 16 | [phase-17-variable-persistence.md](phases/phase-17-variable-persistence.md) |
 | 18 | Structured output and downloads | [ ] Not started | Phase 17 | [phase-18-output.md](phases/phase-18-output.md) |
 | 19 | Integrated acceptance and handoff | [ ] Not started | Phase 18 | [phase-19-delivery.md](phases/phase-19-delivery.md) |
+
+Phase 16 evidence: exporter and CLI cURL tests pass, including round-trip,
+script-warning/strict no-write, body/reference round-trips, placeholder-
+preserving, explicit environment resolution and loopback echo cases. Full-suite
+evidence is recorded in the phase checkpoint and handoff.
 
 See [hld.md](hld.md) for High-Level Design (HLD), [IMPLEMENTATION.md](IMPLEMENTATION.md) for the complete behavioral contract, and [AGENTS.md](AGENTS.md) for execution/handoff rules.
 
