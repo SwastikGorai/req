@@ -1,6 +1,6 @@
 # Compatibility notes
 
-## Phase 13 — Postman data import
+## Phase 13: Postman data import
 
 The importer accepts Postman collection exports whose `info.schema` identifies
 v2.1 and basic environment exports with `values`. It preserves item order,
@@ -22,7 +22,7 @@ concern for Phase 14. Lenient imports sanitize invalid names/IDs and warn;
 strict imports reject those warnings before any file is written. Import never
 executes script source.
 
-## Phase 14 — Imported Postman scripts
+## Phase 14: Imported Postman scripts
 
 Collection `prerequest` events and `test` events are stored as native
 pre-request and post-response script entries. Their source arrays join with
@@ -45,7 +45,7 @@ do not claim complete JavaScript analysis. Strict import rejects those warnings
 before writing, while lenient import preserves the source and lets the runtime
 report dynamically reached unsupported APIs.
 
-## Phase 15 — cURL command import
+## Phase 15: cURL command import
 
 The cURL importer accepts one `curl` invocation using POSIX-like quoting and
 backslash-newline continuations. It maps `-X`/`--request`, `-H`/`--header`,
@@ -65,7 +65,7 @@ the destination request is written. `--data @file` is retained with a warning
 because the native file reference cannot reproduce cURL's newline/NUL
 stripping; strict mode rejects that warning.
 
-## Phase 16 — cURL export
+## Phase 16: cURL export
 
 `req export curl PATH` emits one POSIX-shell-safe command. Headers, URLs,
 inline bodies and credentials use single-quote escaping; disabled entries are
@@ -87,7 +87,7 @@ multipart text uses cURL's `--form-string` so leading `@` and semicolons stay
 literal; file fields remain `-F` references. cURL's default redirect behavior
 is represented with `-L` only when the saved request follows redirects.
 
-## Phase 17 — Persisted script variables
+## Phase 17: Persisted script variables
 
 `req run --persist-vars` is the opt-in path for saving `pm.environment` and
 `pm.collectionVariables` mutations. Environment writes require the selected
@@ -104,7 +104,7 @@ relative attachment files still execute relative to the workspace root; cURL
 exports retain literal file spelling and therefore must run from the matching
 base directory.
 
-## Phase 18 — Structured output and downloads
+## Phase 18: Structured output and downloads
 
 `req send` and `req run` accept `--output PATH`, `--raw`, `--verbose` and
 `--output-format json`. Normal stdout remains response-body-only and status,
@@ -124,3 +124,39 @@ Authorization, Proxy-Authorization, Cookie, Set-Cookie and names listed in the
 workspace `config.json` `secret_headers` array are redacted in verbose and
 JSON header metadata. Response bodies and script logs are not redacted; script
 source can print its own sensitive values.
+
+## Phase 19: Integrated acceptance and delivery
+
+The final CLI acceptance coverage exercises complete workflows against local
+loopback servers rather than calling individual adapters in isolation:
+
+| Workflow | CLI path exercised | Observed guarantee | Boundary |
+|---|---|---|---|
+| Native login/profile | `request create`, `script` post phase, `run --persist-vars`, separate `run --env` | A response token written through `pm.environment` is stored and authenticates the next invocation | Persistence is opt-in and only eligible outcomes are saved |
+| Imported scripts | `import postman`, `run` | Collection/folder/request inheritance, callback `pm.sendRequest`, Promise `pm.sendRequest`, headers and post assertions run in order | The fixture uses only the documented `pm` subset; arbitrary Postman/Node APIs are not promised |
+| cURL round trip | `request create`, `export curl`, `import curl`, `run` | Method, query, header quoting and body bytes observed by a loopback server survive the conversion | One supported command is parsed; export does not execute scripts or resolve values by default |
+
+The repository-level acceptance tests are named `TestAcceptanceNativeLogin`,
+`TestAcceptanceImportedScripts` and `TestAcceptanceCurl` in
+`internal/cli/acceptance_test.go`. Run them with:
+
+```sh
+go test -count=1 ./internal/cli -run 'TestAcceptance(NativeLogin|ImportedScripts|Curl)$'
+```
+
+The corresponding reproducible CLI shapes are:
+
+```sh
+req run "Accounts API/Login" --env local --persist-vars
+req run "Accounts API/Profile" --env local
+req import postman ./collection.json --name "Imported API"
+req run "Imported API/Auth/Login"
+req export curl "Example API/Users/List" > request.curl
+req import curl --file ./request.curl --save-as "Example API/Users/List via curl"
+```
+
+These commands are examples of the supported workflow, not a claim that the
+placeholder hosts are reachable. The root [README](../README.md) routes to
+[getting started](getting-started.md), the [CLI reference](cli-reference.md),
+[scripting](scripting.md) and [import/export](import-export.md) pages for the
+deeper user-facing details.

@@ -1,8 +1,8 @@
 # Phase Manifest
 
-Phases 0-18 are implemented; Phase 19 is next.
+Phases 0-19 are implemented and verified.
 
-Keep status synchronized with PLAN.md and individual checkpoints. Phases 0–18 are implemented; current verification and corrections are recorded in [verification.md](../verification.md).
+Keep status synchronized with PLAN.md and individual checkpoints. Phases 0–19 are implemented and verified; current verification and corrections are recorded in [verification.md](../verification.md).
 
 | Phase | Name | Status | Depends on | File |
 |---|---|---|---|---|
@@ -15,7 +15,7 @@ Keep status synchronized with PLAN.md and individual checkpoints. Phases 0–18 
 | 6 | Environments and inherited authentication | [x] Complete | Phase 5 | [phase-6-variables-auth.md](phase-6-variables-auth.md) |
 | 7 | File uploads and body formats | [x] Complete | Phase 6 | [phase-7-body-files.md](phase-7-body-files.md) |
 | 8 | Script storage and inherited execution | [x] Complete | Phase 7 | [phase-8-script-lifecycle.md](phase-8-script-lifecycle.md) |
-| 9 | Variables, request mutation and response APIs | [x] Complete | Phase 8 | [phase-9-script-bindings.md](phases/phase-9-script-bindings.md) |
+| 9 | Variables, request mutation and response APIs | [x] Complete | Phase 8 | [phase-9-script-bindings.md](phase-9-script-bindings.md) |
 | 10 | Tests and supported assertions | [x] Complete | Phase 9 | [phase-10-assertions.md](phase-10-assertions.md) |
 | 11 | Auxiliary requests with callbacks | [x] Complete | Phase 10 | [phase-11-async-callbacks.md](phase-11-async-callbacks.md) |
 | 12 | Promises, deadlines and cleanup | [x] Complete | Phase 11 | [phase-12-async-promises.md](phase-12-async-promises.md) |
@@ -25,4 +25,4 @@ Keep status synchronized with PLAN.md and individual checkpoints. Phases 0–18 
 | 16 | cURL export | [x] Complete | Phase 15 | [phase-16-curl-export.md](phase-16-curl-export.md) |
 | 17 | Persist extracted variables safely | [x] Complete | Phase 16 | [phase-17-variable-persistence.md](phase-17-variable-persistence.md) |
 | 18 | Structured output and downloads | [x] Complete | Phase 17 | [phase-18-output.md](phase-18-output.md) |
-| 19 | Integrated acceptance and handoff | [ ] Not started | Phase 18 | [phase-19-delivery.md](phase-19-delivery.md) |
+| 19 | Integrated acceptance and handoff | [x] Complete | Phase 18 | [phase-19-delivery.md](phase-19-delivery.md) |

@@ -1,11 +1,10 @@
-# Current handoff — Phase 18
+# Current handoff — Phase 19 final delivery
 
-- **Status:** Phases 0–18 are complete and verified. Phase 19 (integrated
-  acceptance and final delivery) remains.
+- **Status:** Phases 0–19 are complete and verified. The Phase 19 acceptance
+  and documentation changes are uncommitted; no remote action was performed.
 - **Repository:** `D:\Projects\Work\M\GoPM`, branch `main`, baseline commit
-  `4fe2efc` (`Phase 17: persist extracted variables safely`). Phase 18 changes
-  are intentionally uncommitted; no remote action was performed. This corrects
-  the stale handoff that pointed at the Phase 15/16 baseline.
+  `87866cd` (`Phase 18: structured output and downloads`). Parent integration
+  may commit Phase 19; this agent did not commit.
 - **Implementation:** `req send` and `req run` share `--output PATH`, `--raw`,
   `--verbose` and `--output-format json`. Default and raw paths preserve
   streaming body output; terminal-only valid JSON is pretty-printed when raw is
@@ -19,12 +18,27 @@
   precedence remains 130 > 7 > 5 > 6 > 3 > 4. Header metadata redacts
   Authorization, Proxy-Authorization, Cookie, Set-Cookie and configured
   `config.json` `secret_headers`; bodies and script logs are not redacted.
-- **Changed files:** `internal/output/render.go` and tests,
-  `internal/store/config.go`, `internal/httpclient/client.go`,
-  `internal/scripting/engine.go`, `internal/execution/{execution,prepare,run,lifecycle}.go`
-  and tests, `internal/cli/{output,send,run,root}.go` and tests,
-  `docs/{compatibility,decisions}.md`, and the Phase 18 trackers.
-- **Verification:** Focused `rtk go test -count=1 ./internal/output ./internal/execution ./internal/cli ./internal/store ./internal/httpclient ./internal/scripting` passed (253 tests across 6 packages). Full `rtk go test -count=1 -timeout=180s ./...` passed (294 tests across 11 packages). Race `rtk go test -race -count=1 -timeout=240s ./...` passed (294 tests across 11 packages). `rtk go vet ./...`, `rtk gofmt -l internal cmd`, and `rtk git diff --check` all passed.
+- **Changed files:** Added `internal/cli/acceptance_test.go`, the polished
+  root `README.md`, focused `docs/{getting-started,cli-reference,scripting,
+  import-export}.md`, Phase 19 additions to
+  `docs/{compatibility,decisions}.md`, and final updates to
+  `req-iterative-plan/{PLAN,handoff.md}` and
+  `req-iterative-plan/phases/{index,phase-19-delivery,phase-3-storage}.md`.
+  Production code was unchanged.
+- **Acceptance:** `TestAcceptanceNativeLogin` persists a login token and uses
+  it from a separate profile invocation; `TestAcceptanceImportedScripts`
+  imports the existing Postman fixture and verifies callback/Promise and
+  inherited script behavior; `TestAcceptanceCurl` verifies CLI cURL
+  create/export/import/run wire semantics against a loopback server.
+- **Verification:** Focused `rtk go test -count=1 ./internal/cli -run
+  'TestAcceptance(NativeLogin|ImportedScripts|Curl)$'` passed 3 tests. Full
+  `rtk go test -count=1 -timeout=180s ./...` passed 297 tests across 11
+  packages. Race `rtk go test -race -count=1 -timeout=240s ./...` passed the
+  same 297 tests. `rtk go vet ./...`, `rtk gofmt -l .`, `rtk go build
+  ./cmd/req` and `rtk git diff --check` all passed. Cross-builds passed for
+  `windows/amd64`, `linux/amd64`, `darwin/amd64` and `darwin/arm64`; those
+  are compile-only checks, not target runtime tests, and artifacts were
+  removed from a generated temp directory outside the repository.
 - **Named output tests:** `TestJSONSingleEnvelope`,
   `TestLargeBodyScriptFailure`, `TestRawDownloadStreaming`,
   `TestBinaryBase64Envelope`, `TestTerminalOnlyPrettyJSON`,
@@ -36,6 +50,10 @@
   the workspace root; cURL export retains literal spelling and must run from
   the corresponding base, and imported source references may need remapping as
   already documented. JSON/output files intentionally do not promise body or
-  script-log redaction.
-- **Next action:** Begin [phase-19-delivery.md](phases/phase-19-delivery.md),
-  task 1.
+  script-log redaction. This remains a supported Postman/cURL subset: no GUI,
+  cloud sync, collection runner, OAuth UI, cookie jar or remote deployment;
+  unsupported Node/Postman APIs and cURL shell/flag forms are warned or
+  rejected. Goja is not a hard heap/security sandbox. The README and decisions
+  link the primary Goja repository and API docs without claiming otherwise.
+- **Next action:** Parent review and commit are the only remaining local
+  integration step. Do not publish or deploy remotely without authorization.

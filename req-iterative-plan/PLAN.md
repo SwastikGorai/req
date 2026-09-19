@@ -1,10 +1,10 @@
 # req — Iterative Implementation Plan
 
-> Living document. Start here. Phases 0–18 are implemented and verified. See [verification.md](verification.md) for the 2026-09-12 re-audit, prerequisite corrections and continuation evidence. Next: Phase 19.
+> Living document. Start here. Phases 0–19 are implemented and verified. See [verification.md](verification.md) for the 2026-09-12 re-audit, prerequisite corrections and continuation evidence.
 
 ## Goal & Context
 
-Phases 0-18 are implemented and verified; Phase 19 is next.
+Phases 0-19 are implemented and verified.
 
 **What we’re building:** A local-first Go HTTP CLI with saved Postman-style collections/folders, environments, cURL import/export and a supported subset of Postman pre-request and post-response JavaScript, including asynchronous auxiliary requests.
 
@@ -39,7 +39,7 @@ Phases 0-18 are implemented and verified; Phase 19 is next.
 | 16 | cURL export | [x] Complete | Phase 15 | [phase-16-curl-export.md](phases/phase-16-curl-export.md) |
 | 17 | Persist extracted variables safely | [x] Complete | Phase 16 | [phase-17-variable-persistence.md](phases/phase-17-variable-persistence.md) |
 | 18 | Structured output and downloads | [x] Complete | Phase 17 | [phase-18-output.md](phases/phase-18-output.md) |
-| 19 | Integrated acceptance and handoff | [ ] Not started | Phase 18 | [phase-19-delivery.md](phases/phase-19-delivery.md) |
+| 19 | Integrated acceptance and handoff | [x] Complete | Phase 18 | [phase-19-delivery.md](phases/phase-19-delivery.md) |
 
 Phase 16 evidence: exporter and CLI cURL tests pass, including round-trip,
 script-warning/strict no-write, body/reference round-trips, placeholder-
@@ -58,6 +58,14 @@ redaction, terminal-only pretty printing, atomic output paths and bounded
 script/JSON bodies are covered by focused output, execution and CLI tests.
 Full-suite, race, vet, formatting and diff evidence is recorded in the Phase
 18 checkpoint and handoff.
+
+Phase 19 evidence: the named CLI acceptance tests cover native persisted-token
+login/profile, imported callback/Promise/inherited scripts, and cURL
+create/export/import/run wire semantics against loopback servers. The root
+README, compatibility matrix and Goja source-linked decision are complete.
+Focused acceptance, full, race, vet, formatting, diff and build gates pass;
+the four requested target cross-builds pass as compile-only checks. No remote
+publish or deployment action was performed.
 
 See [hld.md](hld.md) for High-Level Design (HLD), [IMPLEMENTATION.md](IMPLEMENTATION.md) for the complete behavioral contract, and [AGENTS.md](AGENTS.md) for execution/handoff rules.
 
