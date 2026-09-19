@@ -26,6 +26,7 @@ const (
 type ScriptPolicy struct {
 	Disabled bool          // --no-scripts: run nothing, stream unbounded
 	Timeout  time.Duration // per-entry deadline; 0 = DefaultScriptTimeout
+	Persist  func(context.Context) error
 }
 
 // InheritedScripts walks coll along segments (segments[0] is the collection
@@ -96,9 +97,10 @@ const (
 )
 
 // RunLifecycle runs pre scripts (unless disabled/absent), resolves and sends
-// the request, then runs post scripts, choosing exit codes per the contract:
-// cancellation 130 beats storage-free script failure 5, which beats failed
-// assertions 6, which beats FailOnHTTPError 4 and transport failure 3. Pre
+// the request, then runs post scripts and optionally persists eligible variable
+// changes, choosing exit codes per the contract: cancellation 130 beats
+// persistence failure 7, which beats script failure 5, failed assertions 6,
+// transport failure 3 and FailOnHTTPError 4. Pre
 // scripts run against the execution copy before ResolveRequest, so a
 // pre-script failure stops everything before variables resolve or anything
 // is sent. With no scripts to run (or --no-scripts) the body streams exactly
@@ -118,7 +120,8 @@ func RunLifecycle(ctx context.Context, saved model.Request, ov Overrides, pol Po
 			fmt.Fprintf(stderr, "req: %v\n", err)
 			return codeUsage
 		}
-		return Execute(ctx, outgoing, stdout, stderr)
+		code := Execute(ctx, outgoing, stdout, stderr)
+		return persistResult(ctx, sp, stderr, code, code == codeSuccess || code == codeHTTPFail)
 	}
 
 	// One engine per execution: VM global state is shared between the
@@ -153,7 +156,8 @@ func RunLifecycle(ctx context.Context, saved model.Request, ov Overrides, pol Po
 	}
 
 	if len(post) == 0 {
-		return preferAssertions(Execute(ctx, outgoing, stdout, stderr), assertFailed)
+		code := Execute(ctx, outgoing, stdout, stderr)
+		return persistResult(ctx, sp, stderr, preferAssertions(code, assertFailed), code == codeSuccess || code == codeHTTPFail)
 	}
 
 	// The post phase needs the received response, so the body is buffered
@@ -211,9 +215,32 @@ func RunLifecycle(ctx context.Context, saved model.Request, ov Overrides, pol Po
 		return codeScript
 	}
 	if pol.FailOnHTTPError && resp.StatusCode >= http.StatusBadRequest {
-		return preferAssertions(codeHTTPFail, assertFailed)
+		return persistResult(ctx, sp, stderr, preferAssertions(codeHTTPFail, assertFailed), true)
 	}
-	return preferAssertions(codeSuccess, assertFailed)
+	return persistResult(ctx, sp, stderr, preferAssertions(codeSuccess, assertFailed), true)
+}
+
+func persistResult(ctx context.Context, sp ScriptPolicy, stderr io.Writer, code int, eligible bool) int {
+	if !eligible || sp.Persist == nil {
+		return code
+	}
+	if ctx.Err() != nil {
+		fmt.Fprintln(stderr, "req: canceled")
+		return codeCanceled
+	}
+	if err := sp.Persist(ctx); err != nil {
+		if ctx.Err() != nil {
+			fmt.Fprintln(stderr, "req: canceled")
+			return codeCanceled
+		}
+		fmt.Fprintf(stderr, "req: persisting variables: %v\n", err)
+		return codeStorage
+	}
+	if ctx.Err() != nil {
+		fmt.Fprintln(stderr, "req: canceled")
+		return codeCanceled
+	}
+	return code
 }
 
 // preferAssertions applies 6 > 3 > 4 > 0 from the exit-code contract: a

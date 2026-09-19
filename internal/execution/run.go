@@ -18,6 +18,7 @@ const (
 	codeHTTPFail   = 4
 	codeScript     = 5 // a pre/post script failed, or the body hit the script buffer limit
 	codeAssertions = 6 // failed pm.test assertions
+	codeStorage    = 7 // variable persistence failed or conflicted
 	codeCanceled   = 130
 )
 

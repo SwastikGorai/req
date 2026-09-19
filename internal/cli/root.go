@@ -166,6 +166,9 @@ Run-only script flags:
                             body streams exactly like a direct send
   --script-timeout DURATION deadline per script entry, including asynchronous
                             work (default 5s)
+  --persist-vars            save dirty environment/collection variables from
+                            eligible runs; --env is required for environment
+                            writes, and saved values may be secrets
 `)
 	return code
 }

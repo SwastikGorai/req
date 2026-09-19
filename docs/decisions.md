@@ -2,6 +2,21 @@
 
 Consequential implementation choices, newest phase first. Routine reversible choices stay in code; cross-phase consequences live here and in handoff.md.
 
+## Phase 17 — Persisted script variables
+
+- **Persistence is an opt-in saved-run callback.** `req run --persist-vars`
+  collects only dirty environment and collection operations; CLI and local
+  variable layers never enter the storage request, and direct `req send` has no
+  persistence path.
+- **Paired writes reuse the workspace lock and atomic replacement.** A small
+  journal stores the exact before/after bytes for one or two native files. Open
+  and discovery remove fully applied journals or roll mixed pairs back; a file
+  changed outside those bytes blocks with exit 7 instead of guessing.
+- **Outcome eligibility stays in the execution lifecycle.** Runtime,
+  transport, body-limit, cancellation and skip stop persistence, while a failed
+  assertion or `--fail` HTTP status still permits valid mutations. A persistence
+  error outranks assertion/HTTP status (7), with cancellation still winning.
+
 ## Phase 16 — cURL export
 
 - **Export formats the saved definition, not an execution.** The exporter does

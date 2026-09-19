@@ -173,10 +173,10 @@ func (e *engine) installBindings() {
 	mustSet(pmTarget, "variables", e.bindVariables())
 	mustSet(pmTarget, "environment", e.bindVariableLayer("pm.environment",
 		"no environment selected; pass --env to set environment variables",
-		func() *map[string]any { return &e.scope.Environment }))
+		func() *map[string]any { return &e.scope.Environment }, e.scope.SetEnvironment, e.scope.UnsetEnvironment))
 	mustSet(pmTarget, "collectionVariables", e.bindVariableLayer("pm.collectionVariables",
 		"no collection variables in this context",
-		func() *map[string]any { return &e.scope.Collection }))
+		func() *map[string]any { return &e.scope.Collection }, e.scope.SetCollection, e.scope.UnsetCollection))
 	mustSet(pmTarget, "request", goja.Null())
 	mustSet(pmTarget, "response", goja.Null())
 	e.installAssertions()
@@ -310,8 +310,8 @@ func replaceInValue(s *variables.Scope, v any) any {
 // bindVariableLayer builds pm.environment or pm.collectionVariables over one
 // scope layer. Reads on a missing layer return undefined/false; writes fail
 // with the unavailable message. Writes mutate the in-memory map only;
-// persistence is a later phase.
-func (e *engine) bindVariableLayer(path, unavailable string, layer func() *map[string]any) goja.Value {
+// persistence is handled by the execution lifecycle.
+func (e *engine) bindVariableLayer(path, unavailable string, layer func() *map[string]any, set func(string, any), unset func(string)) goja.Value {
 	rt := e.rt
 	obj := rt.NewObject()
 	mustSet(obj, "get", func(name string) goja.Value {
@@ -328,19 +328,17 @@ func (e *engine) bindVariableLayer(path, unavailable string, layer func() *map[s
 		return ok
 	})
 	mustSet(obj, "set", func(call goja.FunctionCall) goja.Value {
-		m := *layer()
-		if m == nil {
+		if *layer() == nil {
 			panic(rt.NewGoError(errors.New(unavailable)))
 		}
-		m[call.Argument(0).String()] = call.Argument(1).Export()
+		set(call.Argument(0).String(), call.Argument(1).Export())
 		return goja.Undefined()
 	})
 	mustSet(obj, "unset", func(name string) goja.Value {
-		m := *layer()
-		if m == nil {
+		if *layer() == nil {
 			panic(rt.NewGoError(errors.New(unavailable)))
 		}
-		delete(m, name)
+		unset(name)
 		return goja.Undefined()
 	})
 	return e.guarded(guardDef{

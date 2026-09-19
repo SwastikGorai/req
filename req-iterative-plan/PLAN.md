@@ -1,10 +1,10 @@
 # req — Iterative Implementation Plan
 
-> Living document. Start here. Phases 0–15 are implemented and verified. See [verification.md](verification.md) for the 2026-09-12 re-audit, prerequisite corrections and continuation evidence. Next: Phase 16.
+> Living document. Start here. Phases 0–17 are implemented and verified. See [verification.md](verification.md) for the 2026-09-12 re-audit, prerequisite corrections and continuation evidence. Next: Phase 18.
 
 ## Goal & Context
 
-Phases 0-16 are implemented and verified; Phase 17 is next.
+Phases 0-17 are implemented and verified; Phase 18 is next.
 
 **What we’re building:** A local-first Go HTTP CLI with saved Postman-style collections/folders, environments, cURL import/export and a supported subset of Postman pre-request and post-response JavaScript, including asynchronous auxiliary requests.
 
@@ -37,7 +37,7 @@ Phases 0-16 are implemented and verified; Phase 17 is next.
 | 14 | Imported Postman scripts | [x] Complete | Phase 13 | [phase-14-postman-scripts.md](phases/phase-14-postman-scripts.md) |
 | 15 | cURL command import | [x] Complete | Phase 14 | [phase-15-curl-import.md](phases/phase-15-curl-import.md) |
 | 16 | cURL export | [x] Complete | Phase 15 | [phase-16-curl-export.md](phases/phase-16-curl-export.md) |
-| 17 | Persist extracted variables safely | [ ] Not started | Phase 16 | [phase-17-variable-persistence.md](phases/phase-17-variable-persistence.md) |
+| 17 | Persist extracted variables safely | [x] Complete | Phase 16 | [phase-17-variable-persistence.md](phases/phase-17-variable-persistence.md) |
 | 18 | Structured output and downloads | [ ] Not started | Phase 17 | [phase-18-output.md](phases/phase-18-output.md) |
 | 19 | Integrated acceptance and handoff | [ ] Not started | Phase 18 | [phase-19-delivery.md](phases/phase-19-delivery.md) |
 
@@ -45,6 +45,13 @@ Phase 16 evidence: exporter and CLI cURL tests pass, including round-trip,
 script-warning/strict no-write, body/reference round-trips, placeholder-
 preserving, explicit environment resolution and loopback echo cases. Full-suite
 evidence is recorded in the phase checkpoint and handoff.
+
+Phase 17 evidence: saved `req run --persist-vars` reuses extracted tokens on a
+second invocation, omits persistence by default, enforces runtime/transport/
+skip versus assertion/HTTP eligibility, checks revisions under the workspace
+lock, and recovers an interrupted paired journal. Focused store, variables,
+scripting, execution and CLI tests pass; full, race, vet, formatting and diff
+gates are recorded in the phase checkpoint and handoff.
 
 See [hld.md](hld.md) for High-Level Design (HLD), [IMPLEMENTATION.md](IMPLEMENTATION.md) for the complete behavioral contract, and [AGENTS.md](AGENTS.md) for execution/handoff rules.
 

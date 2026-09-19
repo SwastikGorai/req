@@ -10,6 +10,72 @@ import (
 
 type Scope struct {
 	CLI, Local, Environment, Collection map[string]any
+	environmentChanges                  map[string]Change
+	collectionChanges                   map[string]Change
+}
+
+// Change records one script mutation to a persisted variable layer. Unset
+// distinguishes deleting a key from storing a JSON null value.
+type Change struct {
+	Value any
+	Unset bool
+}
+
+func (s *Scope) SetEnvironment(name string, value any) {
+	if s.Environment == nil {
+		s.Environment = map[string]any{}
+	}
+	s.Environment[name] = value
+	if s.environmentChanges == nil {
+		s.environmentChanges = map[string]Change{}
+	}
+	s.environmentChanges[name] = Change{Value: value}
+}
+
+func (s *Scope) UnsetEnvironment(name string) {
+	delete(s.Environment, name)
+	if s.environmentChanges == nil {
+		s.environmentChanges = map[string]Change{}
+	}
+	s.environmentChanges[name] = Change{Unset: true}
+}
+
+func (s *Scope) SetCollection(name string, value any) {
+	if s.Collection == nil {
+		s.Collection = map[string]any{}
+	}
+	s.Collection[name] = value
+	if s.collectionChanges == nil {
+		s.collectionChanges = map[string]Change{}
+	}
+	s.collectionChanges[name] = Change{Value: value}
+}
+
+func (s *Scope) UnsetCollection(name string) {
+	delete(s.Collection, name)
+	if s.collectionChanges == nil {
+		s.collectionChanges = map[string]Change{}
+	}
+	s.collectionChanges[name] = Change{Unset: true}
+}
+
+func (s *Scope) EnvironmentChanges() map[string]Change {
+	return copyChanges(s.environmentChanges)
+}
+
+func (s *Scope) CollectionChanges() map[string]Change {
+	return copyChanges(s.collectionChanges)
+}
+
+func copyChanges(src map[string]Change) map[string]Change {
+	if len(src) == 0 {
+		return nil
+	}
+	dst := make(map[string]Change, len(src))
+	for key, change := range src {
+		dst[key] = change
+	}
+	return dst
 }
 
 func (s *Scope) Get(name string) (any, bool) {

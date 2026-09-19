@@ -1,8 +1,8 @@
 # Phase Manifest
 
-Phases 0-16 are implemented; Phase 17 is next.
+Phases 0-17 are implemented; Phase 18 is next.
 
-Keep status synchronized with PLAN.md and individual checkpoints. Phases 0–16 are implemented; current verification and corrections are recorded in [verification.md](../verification.md).
+Keep status synchronized with PLAN.md and individual checkpoints. Phases 0–17 are implemented; current verification and corrections are recorded in [verification.md](../verification.md).
 
 | Phase | Name | Status | Depends on | File |
 |---|---|---|---|---|
@@ -23,6 +23,6 @@ Keep status synchronized with PLAN.md and individual checkpoints. Phases 0–16 
 | 14 | Imported Postman scripts | [x] Complete | Phase 13 | [phase-14-postman-scripts.md](phase-14-postman-scripts.md) |
 | 15 | cURL command import | [x] Complete | Phase 14 | [phase-15-curl-import.md](phase-15-curl-import.md) |
 | 16 | cURL export | [x] Complete | Phase 15 | [phase-16-curl-export.md](phase-16-curl-export.md) |
-| 17 | Persist extracted variables safely | [ ] Not started | Phase 16 | [phase-17-variable-persistence.md](phase-17-variable-persistence.md) |
+| 17 | Persist extracted variables safely | [x] Complete | Phase 16 | [phase-17-variable-persistence.md](phase-17-variable-persistence.md) |
 | 18 | Structured output and downloads | [ ] Not started | Phase 17 | [phase-18-output.md](phase-18-output.md) |
 | 19 | Integrated acceptance and handoff | [ ] Not started | Phase 18 | [phase-19-delivery.md](phase-19-delivery.md) |

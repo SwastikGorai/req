@@ -24,6 +24,9 @@ func openWorkspace(inv invocation, stderr io.Writer) (*store.Workspace, int) {
 	}
 	if err != nil {
 		fmt.Fprintf(stderr, "req: %v\nhint: run `req init` to create a workspace here, or pass --workspace PATH\n", err)
+		if errors.Is(err, store.ErrRecovery) {
+			return nil, exitStorage
+		}
 		return nil, exitUsage
 	}
 	return ws, exitSuccess

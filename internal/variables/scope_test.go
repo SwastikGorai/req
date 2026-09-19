@@ -38,6 +38,23 @@ func TestSinglePassVariables(t *testing.T) {
 	}
 }
 
+func TestPersistedChangesTrackOnlyPersistentLayers(t *testing.T) {
+	s := &Scope{CLI: map[string]any{"cli": "original"}, Local: map[string]any{}}
+	s.SetEnvironment("token", "fresh")
+	s.SetCollection("base", "https://example.test")
+	s.UnsetCollection("old")
+	if len(s.EnvironmentChanges()) != 1 || s.EnvironmentChanges()["token"].Value != "fresh" {
+		t.Fatalf("environment changes = %#v", s.EnvironmentChanges())
+	}
+	changes := s.CollectionChanges()
+	if len(changes) != 2 || changes["old"].Unset != true || changes["base"].Value != "https://example.test" {
+		t.Fatalf("collection changes = %#v", changes)
+	}
+	if len(s.Local) != 0 || s.CLI["cli"] != "original" {
+		t.Fatal("persistent change tracking touched local or CLI layers")
+	}
+}
+
 func TestReplaceIn(t *testing.T) {
 	t.Setenv("REQ_TEST_VALUE", "process")
 	s := &Scope{CLI: map[string]any{"v": "cli"}, Collection: map[string]any{"n": 2}}

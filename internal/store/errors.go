@@ -8,6 +8,10 @@ import (
 // ErrNoWorkspace reports that no workspace could be found or opened.
 var ErrNoWorkspace = errors.New("no req workspace found")
 
+// ErrRecovery reports an incomplete variable persistence transaction that
+// could not be recovered safely.
+var ErrRecovery = errors.New("incomplete variable persistence transaction")
+
 // ErrNotFound reports a missing collection file.
 var ErrNotFound = errors.New("not found")
 

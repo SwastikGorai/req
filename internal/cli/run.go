@@ -9,11 +9,12 @@ import (
 	"time"
 
 	"req/internal/execution"
+	"req/internal/store"
+	"req/internal/variables"
 )
 
 // runRun implements `req run PATH [flags]`: resolve the saved request, apply
-// the flag overrides and execute it. The collection file is never written
-// back.
+// the flag overrides and execute it. Variable writes are opt-in.
 func runRun(ctx context.Context, inv invocation, stdout, stderr io.Writer) int {
 	parsed, err := parseRunArgs(inv.args)
 	if err != nil {
@@ -48,6 +49,28 @@ func runRun(ctx context.Context, inv invocation, stdout, stderr io.Writer) int {
 	}
 	parsed.pol.Variables = scope
 	parsed.pol.BodyBase = ws.Root()
+	if parsed.persistVars {
+		convert := func(src map[string]variables.Change) map[string]store.VariableChange {
+			if len(src) == 0 {
+				return nil
+			}
+			dst := make(map[string]store.VariableChange, len(src))
+			for key, change := range src {
+				dst[key] = store.VariableChange{Value: change.Value, Unset: change.Unset}
+			}
+			return dst
+		}
+		parsed.sp.Persist = func(ctx context.Context) error {
+			return ws.PersistVariables(ctx, store.VariableChanges{
+				CollectionName:      rp.Collection.Name,
+				CollectionRevision:  rp.Rev,
+				Collection:          convert(scope.CollectionChanges()),
+				EnvironmentName:     parsed.variables.env,
+				EnvironmentRevision: parsed.variables.envRevision,
+				Environment:         convert(scope.EnvironmentChanges()),
+			})
+		}
+	}
 	if rp.Item.Request.FollowRedirects != nil && parsed.pol.FollowRedirects {
 		parsed.pol.FollowRedirects = *rp.Item.Request.FollowRedirects
 	}
@@ -68,11 +91,12 @@ func runRun(ctx context.Context, inv invocation, stdout, stderr io.Writer) int {
 // and policy fields that were not given keep their zero value, which
 // execution.Prepare interprets as "keep the saved value".
 type runArgs struct {
-	variables variableFlags
-	path      string
-	ov        execution.Overrides
-	pol       execution.Policy
-	sp        execution.ScriptPolicy
+	variables   variableFlags
+	path        string
+	ov          execution.Overrides
+	pol         execution.Policy
+	sp          execution.ScriptPolicy
+	persistVars bool
 }
 
 // parseRunArgs parses and validates run arguments. Unknown flags, missing
@@ -154,6 +178,8 @@ func parseRunArgs(args []string) (runArgs, error) {
 			noFollow = true
 		case "--no-scripts":
 			parsed.sp.Disabled = true
+		case "--persist-vars":
+			parsed.persistVars = true
 		case "--script-timeout":
 			v, err := value(&i, "--script-timeout")
 			if err != nil {

@@ -86,3 +86,20 @@ represented; `--strict` rejects the export before writing the command. Native
 multipart text uses cURL's `--form-string` so leading `@` and semicolons stay
 literal; file fields remain `-F` references. cURL's default redirect behavior
 is represented with `-L` only when the saved request follows redirects.
+
+## Phase 17 — Persisted script variables
+
+`req run --persist-vars` is the opt-in path for saving `pm.environment` and
+`pm.collectionVariables` mutations. Environment writes require the selected
+`--env`; `pm.variables` and `--var` values are always execution-local. Runtime,
+transport, body-limit, cancellation and skip outcomes do not persist changes;
+assertion failures and `--fail` HTTP-status failures still do when the writes
+are otherwise valid. Persistence checks the saved revisions under the workspace
+lock and returns exit 7 on a conflict or write failure.
+
+Collection and environment changes are journaled together when both are dirty.
+Workspace startup recovers a complete or interrupted pair, and blocks with an
+actionable storage error if either target changed outside the journal. Saved
+relative attachment files still execute relative to the workspace root; cURL
+exports retain literal file spelling and therefore must run from the matching
+base directory.

@@ -3,6 +3,7 @@
 package store
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -49,6 +50,9 @@ func Init(dir string) (*Workspace, bool, error) {
 			return nil, false, fmt.Errorf("creating %s: %w", sub, err)
 		}
 	}
+	if err := recoverVariableJournal(context.Background(), abs); err != nil {
+		return nil, false, err
+	}
 	configPath := filepath.Join(reqDir, "config.json")
 	if !fileExists(configPath) {
 		data, _ := json.MarshalIndent(map[string]interface{}{"schema_version": 1}, "", "  ")
@@ -81,6 +85,9 @@ func Discover(start string) (*Workspace, error) {
 	}
 	for {
 		if dirExists(filepath.Join(abs, DirName)) {
+			if err := recoverVariableJournal(context.Background(), abs); err != nil {
+				return nil, err
+			}
 			return &Workspace{root: abs}, nil
 		}
 		parent := filepath.Dir(abs)
@@ -99,9 +106,15 @@ func Open(path string) (*Workspace, error) {
 		return nil, err
 	}
 	if filepath.Base(abs) == DirName && dirExists(abs) {
+		if err := recoverVariableJournal(context.Background(), filepath.Dir(abs)); err != nil {
+			return nil, err
+		}
 		return &Workspace{root: filepath.Dir(abs)}, nil
 	}
 	if dirExists(filepath.Join(abs, DirName)) {
+		if err := recoverVariableJournal(context.Background(), abs); err != nil {
+			return nil, err
+		}
 		return &Workspace{root: abs}, nil
 	}
 	return nil, fmt.Errorf("%w: %s is not a workspace", ErrNoWorkspace, path)

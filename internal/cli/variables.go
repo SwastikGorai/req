@@ -11,6 +11,7 @@ import (
 
 type variableFlags struct {
 	env            string
+	envRevision    store.Revision
 	values         map[string]any
 	auth           *model.Auth
 	user, password bool
@@ -87,14 +88,21 @@ func (f variableFlags) validate() error {
 	return nil
 }
 
-func (f variableFlags) scope(ctx context.Context, ws *store.Workspace, collection map[string]any) (*variables.Scope, error) {
+func (f *variableFlags) scope(ctx context.Context, ws *store.Workspace, collection map[string]any) (*variables.Scope, error) {
+	if collection == nil {
+		collection = map[string]any{}
+	}
 	s := &variables.Scope{CLI: f.values, Local: map[string]any{}, Collection: collection}
 	if f.env != "" {
-		e, _, err := ws.LoadEnvironment(ctx, f.env)
+		e, rev, err := ws.LoadEnvironment(ctx, f.env)
 		if err != nil {
 			return nil, err
 		}
+		f.envRevision = rev
 		s.Environment = e.ActiveVariables()
+		if s.Environment == nil {
+			s.Environment = map[string]any{}
+		}
 	}
 	return s, nil
 }
